@@ -43,6 +43,9 @@ public class Course {
     @OrderBy("position ASC")
     private List<CourseModule> modules = new ArrayList<>();
 
+    @OneToMany(mappedBy = "course", fetch = FetchType.LAZY)
+    private List<CourseReview> reviews = new ArrayList<>();
+
     protected Course() {
     }
 
@@ -78,6 +81,17 @@ public class Course {
 
     public List<CourseModule> getModules() {
         return Collections.unmodifiableList(modules);
+    }
+
+    public List<CourseReview> getReviews() {
+        return Collections.unmodifiableList(reviews);
+    }
+
+    public CourseReview addReview(User student, int rating, String comment) {
+        CourseReview review = new CourseReview(this, student, rating, comment);
+        reviews.add(review);
+        student.addReview(review);
+        return review;
     }
 
     public CourseModule addModule(String title) {
