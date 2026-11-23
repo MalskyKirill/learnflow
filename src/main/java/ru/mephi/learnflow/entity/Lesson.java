@@ -1,5 +1,6 @@
 package ru.mephi.learnflow.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -8,8 +9,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Entity
 @Table(name = "lessons", uniqueConstraints = @UniqueConstraint(columnNames = {"module_id", "position"}))
@@ -31,6 +38,9 @@ public class Lesson {
 
     @Column(nullable = false)
     private int position;
+
+    @OneToMany(mappedBy = "lesson", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Assignment> assignments = new ArrayList<>();
 
     protected Lesson() {
     }
@@ -60,5 +70,15 @@ public class Lesson {
 
     public int getPosition() {
         return position;
+    }
+
+    public List<Assignment> getAssignments() {
+        return Collections.unmodifiableList(assignments);
+    }
+
+    public Assignment addAssignment(String title, String description, Instant dueAt, int maxScore) {
+        Assignment assignment = new Assignment(this, title, description, dueAt, maxScore);
+        assignments.add(assignment);
+        return assignment;
     }
 }
