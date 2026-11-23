@@ -46,6 +46,43 @@ class CoursePersistenceTest {
     }
 
     @Test
+    void loadsModulesAndLessonsLazilyInStoredPositionOrder() {
+        Category category = new Category("Разработка");
+        User teacher = new User("Ирина", "irina@example.org", UserRole.TEACHER);
+        entities.persist(category);
+        entities.persist(teacher);
+        Course course = new Course("Hibernate", null, category, teacher);
+        CourseModule practice = course.addModule("Практика");
+        CourseModule theory = course.addModule("Теория");
+        Lesson queries = theory.addLesson("Запросы", "Введение в JPQL");
+        theory.addLesson("Сущности", "Отображение таблиц");
+        practice.addLesson("Проект", "Создайте модель");
+        entities.persist(course);
+        entities.flush();
+
+        // Отличаем порядок программы от порядка вставки строк в базу.
+        entities.createQuery("update CourseModule m set m.position = 3 where m.id = :id")
+                .setParameter("id", practice.getId()).executeUpdate();
+        entities.createQuery("update Lesson l set l.position = 3 where l.id = :id")
+                .setParameter("id", queries.getId()).executeUpdate();
+        entities.clear();
+
+        Course loaded = entities.find(Course.class, course.getId());
+        PersistenceUnitUtil persistence = entities.getEntityManagerFactory().getPersistenceUnitUtil();
+        assertThat(persistence.isLoaded(loaded, "modules")).isFalse();
+        assertThat(loaded.getModules()).extracting(CourseModule::getTitle)
+                .containsExactly("Теория", "Практика");
+
+        CourseModule first = loaded.getModules().getFirst();
+        assertThat(persistence.isLoaded(first, "lessons")).isFalse();
+        assertThat(first.getLessons()).extracting(Lesson::getTitle)
+                .containsExactly("Сущности", "Запросы");
+        assertThat(first.getLessons().getLast().getContent()).isEqualTo("Введение в JPQL");
+        assertThat(loaded.getModules().getLast().getLessons()).extracting(Lesson::getTitle)
+                .containsExactly("Проект");
+    }
+
+    @Test
     void rejectsStudentAsTeacher() {
         User student = new User("Иван", "ivan@example.org", UserRole.STUDENT);
 
