@@ -3,8 +3,10 @@ package ru.mephi.learnflow.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.entity.Course;
+import ru.mephi.learnflow.entity.CourseModule;
 import ru.mephi.learnflow.repository.CourseModuleRepository;
 import ru.mephi.learnflow.repository.CourseRepository;
+import ru.mephi.learnflow.repository.LessonRepository;
 
 import java.util.List;
 
@@ -14,10 +16,12 @@ public class CourseContentService {
 
     private final CourseRepository courses;
     private final CourseModuleRepository modules;
+    private final LessonRepository lessons;
 
-    public CourseContentService(CourseRepository courses, CourseModuleRepository modules) {
+    public CourseContentService(CourseRepository courses, CourseModuleRepository modules, LessonRepository lessons) {
         this.courses = courses;
         this.modules = modules;
+        this.lessons = lessons;
     }
 
     @Transactional
@@ -34,6 +38,22 @@ public class CourseContentService {
         return modules.findAllByCourse_IdOrderByPositionAsc(courseId).stream()
                 .map(CourseModuleDetails::from)
                 .toList();
+    }
+
+    @Transactional
+    public LessonDetails addLesson(Long moduleId, String title, String content) {
+        CourseModule module = modules.findByIdForUpdate(moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Модуль " + moduleId + " не найден"));
+        return LessonDetails.from(lessons.save(module.addLesson(title, content)));
+    }
+
+    public CourseProgram getProgram(Long courseId) {
+        Course course = courses.findById(courseId).orElseThrow(() -> courseNotFound(courseId));
+        List<CourseProgram.Module> program = modules.findAllWithLessonsByCourseId(courseId).stream()
+                .map(module -> new CourseProgram.Module(CourseModuleDetails.from(module),
+                        module.getLessons().stream().map(LessonDetails::from).toList()))
+                .toList();
+        return new CourseProgram(CourseDetails.from(course), program);
     }
 
     private ResourceNotFoundException courseNotFound(Long courseId) {

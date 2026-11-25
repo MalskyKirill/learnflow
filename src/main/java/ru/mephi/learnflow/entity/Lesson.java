@@ -46,6 +46,9 @@ public class Lesson {
     }
 
     Lesson(CourseModule module, String title, String content, int position) {
+        if (title == null || title.isBlank() || title.length() > 255) {
+            throw new IllegalArgumentException("Название урока должно содержать от 1 до 255 символов");
+        }
         this.module = module;
         this.title = title;
         this.content = content;
