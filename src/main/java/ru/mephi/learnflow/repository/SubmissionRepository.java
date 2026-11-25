@@ -14,6 +14,10 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     List<Submission> findAllByStudent_Id(Long studentId);
 
+    List<Submission> findAllByAssignment_IdOrderBySubmittedAtDescIdDesc(Long assignmentId);
+
+    List<Submission> findAllByStudent_IdOrderBySubmittedAtDescIdDesc(Long studentId);
+
     @EntityGraph(attributePaths = "assignment.lesson.module.course")
     Optional<Submission> findWithCourseById(Long id);
 }

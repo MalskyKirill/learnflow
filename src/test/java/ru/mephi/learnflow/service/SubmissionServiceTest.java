@@ -51,6 +51,7 @@ class SubmissionServiceTest {
     private EntityManager entities;
 
     private Long assignmentId;
+    private Long lessonId;
     private Long courseId;
     private Long studentId;
     private Long teacherId;
@@ -62,7 +63,7 @@ class SubmissionServiceTest {
         Long categoryId = categories.save(new Category("Базы данных")).getId();
         courseId = courses.createCourse("ORM", null, categoryId, teacherId).id();
         Long moduleId = content.addModule(courseId, "Основы").id();
-        Long lessonId = content.addLesson(moduleId, "Связи", null).id();
+        lessonId = content.addLesson(moduleId, "Связи", null).id();
         assignmentId = assignments.createAssignment(lessonId, teacherId, "JPA-связи", null, null, 20).id();
         entities.clear();
     }
@@ -157,5 +158,37 @@ class SubmissionServiceTest {
         assertThatIllegalArgumentException().isThrownBy(
                 () -> service.gradeSubmission(submissionId, teacherId, 21, null));
         assertThat(submissions.findById(submissionId).orElseThrow().getScore()).isNull();
+    }
+
+    @Test
+    void listsAssignmentSubmissionsAndStudentsOwnGradedHistory() {
+        Long secondStudentId = users.save(new User("Иван", "ivan@example.org", UserRole.STUDENT)).getId();
+        Long secondAssignmentId = assignments.createAssignment(lessonId, teacherId, "JPQL", null, null, 10).id();
+        enrollments.enrollStudent(courseId, studentId);
+        enrollments.enrollStudent(courseId, secondStudentId);
+        assertThat(service.listAssignmentSubmissions(assignmentId, teacherId)).isEmpty();
+        assertThat(service.listStudentSubmissions(studentId)).isEmpty();
+
+        SubmissionDetails first = service.submitAssignment(assignmentId, studentId, "Связь многие к одному");
+        SubmissionDetails second = service.submitAssignment(assignmentId, secondStudentId, "Связь один ко многим");
+        SubmissionDetails third = service.submitAssignment(secondAssignmentId, studentId, "select c from Course c");
+        SubmissionDetails graded = service.gradeSubmission(first.id(), teacherId, 18, "Добавь пример");
+        enrollments.unenrollStudent(courseId, studentId);
+        entities.flush();
+        entities.clear();
+
+        assertThat(service.listAssignmentSubmissions(assignmentId, teacherId)).containsExactly(second, graded);
+        assertThat(service.listStudentSubmissions(studentId)).containsExactly(third, graded);
+        assertThat(service.listStudentSubmissions(secondStudentId)).containsExactly(second);
+    }
+
+    @Test
+    void rejectsAssignmentSubmissionListForAnotherTeacherAndStudent() {
+        Long otherTeacherId = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER)).getId();
+
+        assertThatThrownBy(() -> service.listAssignmentSubmissions(assignmentId, otherTeacherId))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThatThrownBy(() -> service.listAssignmentSubmissions(assignmentId, studentId))
+                .isInstanceOf(CourseTeacherRequiredException.class);
     }
 }
