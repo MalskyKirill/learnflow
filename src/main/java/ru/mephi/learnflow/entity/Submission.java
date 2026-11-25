@@ -12,11 +12,14 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "submissions", uniqueConstraints = @UniqueConstraint(
-        name = "uk_submissions_student_assignment", columnNames = {"student_id", "assignment_id"}))
+        name = Submission.UNIQUE_STUDENT_ASSIGNMENT, columnNames = {"student_id", "assignment_id"}))
 public class Submission {
+
+    public static final String UNIQUE_STUDENT_ASSIGNMENT = "uk_submissions_student_assignment";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,10 +51,13 @@ public class Submission {
         if (student == null || student.getRole() != UserRole.STUDENT) {
             throw new IllegalArgumentException("Отправить решение может только студент");
         }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("Решение не должно быть пустым");
+        }
         this.assignment = assignment;
         this.student = student;
         this.content = content;
-        this.submittedAt = Instant.now();
+        this.submittedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public Long getId() {
