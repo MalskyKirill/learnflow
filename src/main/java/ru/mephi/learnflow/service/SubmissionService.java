@@ -5,6 +5,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.entity.Assignment;
+import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.Submission;
 import ru.mephi.learnflow.repository.AssignmentRepository;
@@ -42,5 +43,17 @@ public class SubmissionService {
             }
             throw exception;
         }
+    }
+
+    @Transactional
+    public SubmissionDetails gradeSubmission(Long submissionId, Long teacherId, int score, String feedback) {
+        Submission submission = submissions.findWithCourseById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Решение " + submissionId + " не найдено"));
+        Course course = submission.getAssignment().getLesson().getModule().getCourse();
+        if (!course.getTeacher().getId().equals(teacherId)) {
+            throw new CourseTeacherRequiredException(course.getId());
+        }
+        submission.grade(score, feedback);
+        return SubmissionDetails.from(submission);
     }
 }

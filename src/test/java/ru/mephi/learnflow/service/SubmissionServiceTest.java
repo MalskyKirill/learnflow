@@ -53,10 +53,11 @@ class SubmissionServiceTest {
     private Long assignmentId;
     private Long courseId;
     private Long studentId;
+    private Long teacherId;
 
     @BeforeEach
     void createAssignmentAndStudent() {
-        Long teacherId = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER)).getId();
+        teacherId = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER)).getId();
         studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
         Long categoryId = categories.save(new Category("Базы данных")).getId();
         courseId = courses.createCourse("ORM", null, categoryId, teacherId).id();
@@ -107,5 +108,54 @@ class SubmissionServiceTest {
 
         assertThatIllegalArgumentException().isThrownBy(() -> service.submitAssignment(assignmentId, studentId, " "));
         assertThat(submissions.findAllByAssignment_Id(assignmentId)).isEmpty();
+    }
+
+    @Test
+    void assignedTeacherCanGradeAndUpdateTheGrade() {
+        enrollments.enrollStudent(courseId, studentId);
+        SubmissionDetails submitted = service.submitAssignment(assignmentId, studentId, "Связь многие к одному");
+        entities.clear();
+
+        SubmissionDetails graded = service.gradeSubmission(submitted.id(), teacherId, 0, "Нужен пример");
+        assertThat(graded.score()).isZero();
+        assertThat(graded.feedback()).isEqualTo("Нужен пример");
+        entities.flush();
+        entities.clear();
+        assertThat(submissions.findById(submitted.id())).get()
+                .extracting(SubmissionDetails::from).isEqualTo(graded);
+
+        SubmissionDetails regraded = service.gradeSubmission(submitted.id(), teacherId, 20, "Верное решение");
+        entities.flush();
+        entities.clear();
+
+        assertThat(regraded).isEqualTo(new SubmissionDetails(submitted.id(), assignmentId, studentId,
+                submitted.content(), submitted.submittedAt(), 20, "Верное решение"));
+        assertThat(submissions.findById(submitted.id())).get()
+                .extracting(SubmissionDetails::from).isEqualTo(regraded);
+    }
+
+    @Test
+    void rejectsGradeFromAnotherTeacherAndStudent() {
+        enrollments.enrollStudent(courseId, studentId);
+        Long submissionId = service.submitAssignment(assignmentId, studentId, "Решение").id();
+        Long otherTeacherId = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER)).getId();
+
+        assertThatThrownBy(() -> service.gradeSubmission(submissionId, otherTeacherId, 10, null))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThatThrownBy(() -> service.gradeSubmission(submissionId, studentId, 10, null))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThat(submissions.findById(submissionId).orElseThrow().getScore()).isNull();
+    }
+
+    @Test
+    void rejectsScoreOutsideAssignmentRange() {
+        enrollments.enrollStudent(courseId, studentId);
+        Long submissionId = service.submitAssignment(assignmentId, studentId, "Решение").id();
+
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.gradeSubmission(submissionId, teacherId, -1, null));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.gradeSubmission(submissionId, teacherId, 21, null));
+        assertThat(submissions.findById(submissionId).orElseThrow().getScore()).isNull();
     }
 }

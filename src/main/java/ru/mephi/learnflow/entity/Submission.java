@@ -87,4 +87,13 @@ public class Submission {
     public String getFeedback() {
         return feedback;
     }
+
+    public void grade(int score, String feedback) {
+        int maxScore = assignment.getMaxScore();
+        if (score < 0 || score > maxScore) {
+            throw new IllegalArgumentException("Балл за решение должен быть от 0 до " + maxScore);
+        }
+        this.score = score;
+        this.feedback = feedback;
+    }
 }
