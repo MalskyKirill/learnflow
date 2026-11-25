@@ -49,6 +49,9 @@ public class Assignment {
     }
 
     Assignment(Lesson lesson, String title, String description, Instant dueAt, int maxScore) {
+        if (title == null || title.isBlank() || title.length() > 255) {
+            throw new IllegalArgumentException("Название задания должно содержать от 1 до 255 символов");
+        }
         if (maxScore < 1) {
             throw new IllegalArgumentException("Максимальный балл должен быть положительным");
         }
