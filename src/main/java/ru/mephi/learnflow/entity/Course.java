@@ -50,6 +50,16 @@ public class Course {
     }
 
     public Course(String title, String description, Category category, User teacher) {
+        updateDetails(title, description, category, teacher);
+    }
+
+    public void updateDetails(String title, String description, Category category, User teacher) {
+        if (title == null || title.isBlank() || title.length() > 255) {
+            throw new IllegalArgumentException("Название курса должно содержать от 1 до 255 символов");
+        }
+        if (category == null) {
+            throw new IllegalArgumentException("Укажите категорию курса");
+        }
         if (teacher == null || teacher.getRole() != UserRole.TEACHER) {
             throw new IllegalArgumentException("Вести курс может только преподаватель");
         }
