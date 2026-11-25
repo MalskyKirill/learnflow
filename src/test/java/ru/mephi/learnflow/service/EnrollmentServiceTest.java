@@ -84,6 +84,37 @@ class EnrollmentServiceTest {
 
     @Test
     @Transactional
+    void listsStudentsAndCoursesAndRemovesOnlySelectedEnrollment() {
+        Category category = categories.save(new Category("Базы данных"));
+        User teacher = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER));
+        User anna = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT));
+        User ivan = users.save(new User("Иван", "ivan@example.org", UserRole.STUDENT));
+        CourseDetails orm = courses.createCourse("ORM", null, category.getId(), teacher.getId());
+        CourseDetails sql = courses.createCourse("SQL", null, category.getId(), teacher.getId());
+        StudentDetails annaDetails = new StudentDetails(anna.getId(), anna.getName());
+        StudentDetails ivanDetails = new StudentDetails(ivan.getId(), ivan.getName());
+        assertThat(service.listStudents(orm.id())).isEmpty();
+        assertThat(service.listCourses(anna.getId())).isEmpty();
+
+        service.enrollStudent(orm.id(), anna.getId());
+        service.enrollStudent(orm.id(), ivan.getId());
+        service.enrollStudent(sql.id(), anna.getId());
+
+        assertThat(service.listStudents(orm.id())).containsExactly(annaDetails, ivanDetails);
+        assertThat(service.listCourses(anna.getId())).containsExactly(orm, sql);
+
+        service.unenrollStudent(orm.id(), anna.getId());
+        service.unenrollStudent(orm.id(), anna.getId());
+
+        assertThat(service.listStudents(orm.id())).containsExactly(ivanDetails);
+        assertThat(service.listCourses(anna.getId())).containsExactly(sql);
+
+        service.enrollStudent(orm.id(), anna.getId());
+        assertThat(service.listStudents(orm.id())).containsExactly(ivanDetails, annaDetails);
+    }
+
+    @Test
+    @Transactional
     void rejectsTeacherEnrollment() {
         Category category = categories.save(new Category("Базы данных"));
         User teacher = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER));
