@@ -14,11 +14,14 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Entity
 @Table(name = "enrollments", uniqueConstraints = @UniqueConstraint(
-        name = "uk_enrollments_student_course", columnNames = {"student_id", "course_id"}))
+        name = Enrollment.UNIQUE_STUDENT_COURSE, columnNames = {"student_id", "course_id"}))
 public class Enrollment {
+
+    public static final String UNIQUE_STUDENT_COURSE = "uk_enrollments_student_course";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,7 +51,7 @@ public class Enrollment {
         }
         this.student = student;
         this.course = course;
-        this.enrolledAt = Instant.now();
+        this.enrolledAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
         this.status = EnrollmentStatus.ACTIVE;
     }
 
