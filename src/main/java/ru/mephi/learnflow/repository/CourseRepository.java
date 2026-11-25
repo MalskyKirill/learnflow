@@ -1,14 +1,21 @@
 package ru.mephi.learnflow.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ru.mephi.learnflow.entity.Course;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findAllByCategory_Id(Long categoryId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Course c where c.id = :courseId")
+    Optional<Course> findByIdForUpdate(@Param("courseId") Long courseId);
 
     @Query("""
             select case when count(c) > 0 then true else false end
