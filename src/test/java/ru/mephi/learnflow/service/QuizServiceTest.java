@@ -266,4 +266,44 @@ class QuizServiceTest {
         assertThatThrownBy(() -> service.listStudentAttempts(Long.MAX_VALUE))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void teacherSeesAttemptsForSelectedQuizNewestFirst() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        Long peerId = users.save(new User("Иван", "ivan@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+        enrollments.enrollStudent(courseId, peerId);
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        Long otherModuleId = content.addModule(courseId, "Запросы").id();
+        Long otherQuizId = service.createQuiz(otherModuleId, teacherId, "JPQL").id();
+        QuizQuestionDetails question = service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+        assertThat(service.listQuizAttempts(quizId, teacherId)).isEmpty();
+
+        QuizAttemptDetails first = service.submitQuiz(quizId, studentId,
+                Map.of(question.id(), question.options().getFirst().id()));
+        QuizAttemptDetails peer = service.submitQuiz(quizId, peerId,
+                Map.of(question.id(), question.options().getLast().id()));
+        QuizAttemptDetails retry = service.submitQuiz(quizId, studentId,
+                Map.of(question.id(), question.options().getLast().id()));
+        QuizAttemptDetails other = service.submitQuiz(otherQuizId, studentId, Map.of());
+        entities.flush();
+        entities.clear();
+
+        assertThat(service.listQuizAttempts(quizId, teacherId)).containsExactly(retry, peer, first);
+        assertThat(service.listQuizAttempts(otherQuizId, teacherId)).containsExactly(other);
+    }
+
+    @Test
+    void rejectsQuizResultsForAnotherTeacherOrStudent() {
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        Long otherTeacherId = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER)).getId();
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+
+        assertThatThrownBy(() -> service.listQuizAttempts(quizId, otherTeacherId))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThatThrownBy(() -> service.listQuizAttempts(quizId, studentId))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+    }
 }

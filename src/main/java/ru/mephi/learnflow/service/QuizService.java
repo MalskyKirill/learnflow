@@ -103,6 +103,15 @@ public class QuizService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<QuizAttemptDetails> listQuizAttempts(Long quizId, Long teacherId) {
+        Quiz quiz = requireQuiz(quizId);
+        requireCourseTeacher(quiz.getModule().getCourse(), teacherId);
+        return attempts.findAllByQuiz_IdOrderByTakenAtDescIdDesc(quizId).stream()
+                .map(QuizAttemptDetails::from)
+                .toList();
+    }
+
     private Quiz requireQuiz(Long quizId) {
         return quizzes.findById(quizId)
                 .orElseThrow(() -> new ResourceNotFoundException("Викторина " + quizId + " не найдена"));
