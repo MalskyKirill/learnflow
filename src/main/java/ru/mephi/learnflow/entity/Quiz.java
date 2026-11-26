@@ -15,7 +15,9 @@ import jakarta.persistence.Table;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "quizzes")
@@ -67,5 +69,34 @@ public class Quiz {
         Question question = new Question(this, text);
         questions.add(question);
         return question;
+    }
+
+    public List<AnswerOption> resolveSelectedOptions(Map<Long, Long> answers) {
+        if (answers == null) {
+            throw new IllegalArgumentException("Передайте ответы на вопросы викторины");
+        }
+        Map<Long, Long> remaining = new LinkedHashMap<>(answers);
+        List<AnswerOption> selected = new ArrayList<>(answers.size());
+        for (Question question : questions) {
+            Long questionId = question.getId();
+            if (questionId == null || !remaining.containsKey(questionId)) {
+                continue;
+            }
+            Long optionId = remaining.remove(questionId);
+            if (optionId == null) {
+                throw new IllegalArgumentException("Укажите вариант ответа для вопроса " + questionId);
+            }
+            AnswerOption option = question.getOptions().stream()
+                    .filter(candidate -> optionId.equals(candidate.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Вариант ответа " + optionId + " не относится к вопросу " + questionId));
+            selected.add(option);
+        }
+        if (!remaining.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Вопрос " + remaining.keySet().iterator().next() + " не относится к викторине");
+        }
+        return List.copyOf(selected);
     }
 }

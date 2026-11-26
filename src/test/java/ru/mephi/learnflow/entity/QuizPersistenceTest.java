@@ -11,6 +11,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -99,5 +103,59 @@ class QuizPersistenceTest {
         QuizSubmission attempt = new QuizSubmission(quiz, student, 0);
 
         assertThatIllegalArgumentException().isThrownBy(() -> attempt.addAnswer(foreignOption));
+    }
+
+    @Test
+    void resolvesOnlySelectedOptionsInQuestionOrder() {
+        Question relation = quiz.addQuestion("Какая связь нужна?");
+        AnswerOption manyToOne = relation.addOption("@ManyToOne", true);
+        Question fetch = quiz.addQuestion("Как отложить загрузку?");
+        AnswerOption lazy = fetch.addOption("LAZY", true);
+        entities.persist(quiz);
+        entities.flush();
+        entities.clear();
+
+        Quiz loaded = entities.find(Quiz.class, quiz.getId());
+        Map<Long, Long> answers = new LinkedHashMap<>();
+        answers.put(fetch.getId(), lazy.getId());
+        answers.put(relation.getId(), manyToOne.getId());
+
+        assertThat(loaded.resolveSelectedOptions(answers)).extracting(AnswerOption::getId)
+                .containsExactly(manyToOne.getId(), lazy.getId());
+        assertThat(answers).hasSize(2);
+        assertThat(loaded.resolveSelectedOptions(Map.of(fetch.getId(), lazy.getId())))
+                .extracting(AnswerOption::getId).containsExactly(lazy.getId());
+        assertThat(loaded.resolveSelectedOptions(Map.of())).isEmpty();
+    }
+
+    @Test
+    void rejectsUnknownQuestionsAndOptionsFromAnotherQuestion() {
+        Question relation = quiz.addQuestion("Какая связь нужна?");
+        AnswerOption manyToOne = relation.addOption("@ManyToOne", true);
+        Question fetch = quiz.addQuestion("Как отложить загрузку?");
+        AnswerOption lazy = fetch.addOption("LAZY", true);
+        CourseModule otherModule = course.addModule("SQL");
+        entities.flush();
+        Quiz otherQuiz = new Quiz(otherModule, "Запросы");
+        Question query = otherQuiz.addQuestion("Что читает данные?");
+        AnswerOption select = query.addOption("SELECT", true);
+        entities.persist(quiz);
+        entities.persist(otherQuiz);
+        entities.flush();
+        entities.clear();
+
+        Quiz loaded = entities.find(Quiz.class, quiz.getId());
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> loaded.resolveSelectedOptions(Map.of(query.getId(), select.getId())));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> loaded.resolveSelectedOptions(Map.of(relation.getId(), lazy.getId())));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> loaded.resolveSelectedOptions(Map.of(relation.getId(), select.getId())));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> loaded.resolveSelectedOptions(Map.of(relation.getId(), Long.MAX_VALUE)));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> loaded.resolveSelectedOptions(Collections.singletonMap(relation.getId(), null)));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> loaded.resolveSelectedOptions(Collections.singletonMap(null, manyToOne.getId())));
     }
 }
