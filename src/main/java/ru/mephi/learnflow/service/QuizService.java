@@ -4,9 +4,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.CourseModule;
+import ru.mephi.learnflow.entity.Question;
 import ru.mephi.learnflow.entity.Quiz;
 import ru.mephi.learnflow.repository.CourseModuleRepository;
 import ru.mephi.learnflow.repository.QuizRepository;
+
+import java.util.List;
 
 @Service
 public class QuizService {
@@ -23,13 +26,40 @@ public class QuizService {
     public QuizDetails createQuiz(Long moduleId, Long teacherId, String title) {
         CourseModule module = modules.findByIdForUpdate(moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Модуль " + moduleId + " не найден"));
-        Course course = module.getCourse();
-        if (!course.getTeacher().getId().equals(teacherId)) {
-            throw new CourseTeacherRequiredException(course.getId());
-        }
+        requireCourseTeacher(module.getCourse(), teacherId);
         if (quizzes.existsByModule_Id(moduleId)) {
             throw new QuizAlreadyExistsException(moduleId);
         }
         return QuizDetails.from(quizzes.save(new Quiz(module, title)));
+    }
+
+    @Transactional
+    public QuizQuestionDetails addQuestion(Long quizId, Long teacherId, String text, List<QuizOptionDraft> options) {
+        Quiz quiz = quizzes.findById(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Викторина " + quizId + " не найдена"));
+        requireCourseTeacher(quiz.getModule().getCourse(), teacherId);
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("Текст вопроса не должен быть пустым");
+        }
+        if (options == null || options.size() < 2) {
+            throw new IllegalArgumentException("У вопроса должно быть не менее двух вариантов ответа");
+        }
+        if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
+            throw new IllegalArgumentException("Текст варианта ответа не должен быть пустым");
+        }
+        if (options.stream().filter(QuizOptionDraft::correct).count() != 1) {
+            throw new IllegalArgumentException("У вопроса должен быть ровно один правильный вариант");
+        }
+
+        Question question = quiz.addQuestion(text);
+        options.forEach(option -> question.addOption(option.text(), option.correct()));
+        quizzes.flush();
+        return QuizQuestionDetails.from(question);
+    }
+
+    private void requireCourseTeacher(Course course, Long teacherId) {
+        if (!course.getTeacher().getId().equals(teacherId)) {
+            throw new CourseTeacherRequiredException(course.getId());
+        }
     }
 }

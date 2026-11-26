@@ -14,6 +14,8 @@ import ru.mephi.learnflow.repository.CategoryRepository;
 import ru.mephi.learnflow.repository.QuizRepository;
 import ru.mephi.learnflow.repository.UserRepository;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -85,5 +87,52 @@ class QuizServiceTest {
                 .isInstanceOf(CourseTeacherRequiredException.class);
         assertThatIllegalArgumentException().isThrownBy(() -> service.createQuiz(moduleId, teacherId, " "));
         assertThat(quizzes.findByModule_Id(moduleId)).isEmpty();
+    }
+
+    @Test
+    void savesQuestionAndAllOptionsWithTheirCorrectness() {
+        QuizDetails quiz = service.createQuiz(moduleId, teacherId, "Связи сущностей");
+        entities.clear();
+        QuizQuestionDetails question = service.addQuestion(quiz.id(), teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false),
+                new QuizOptionDraft("@ManyToOne", true),
+                new QuizOptionDraft("@OneToOne", false)));
+        entities.clear();
+
+        assertThat(question.id()).isNotNull();
+        assertThat(question.options()).extracting(QuizQuestionDetails.Option::id).doesNotContainNull();
+        assertThat(question.options()).extracting(QuizQuestionDetails.Option::correct).containsExactly(false, true, false);
+        assertThat(quizzes.findById(quiz.id()).orElseThrow().getQuestions())
+                .extracting(QuizQuestionDetails::from).containsExactly(question);
+    }
+
+    @Test
+    void rejectsInvalidQuestionsAndLeavesQuizEmpty() {
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        QuizOptionDraft correct = new QuizOptionDraft("@ManyToOne", true);
+        QuizOptionDraft incorrect = new QuizOptionDraft("@OneToMany", false);
+
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.addQuestion(quizId, teacherId, " ", List.of(correct, incorrect)));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(correct)));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(incorrect, incorrect)));
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(correct, correct)));
+        assertThatIllegalArgumentException().isThrownBy(() -> service.addQuestion(
+                quizId, teacherId, "Какая аннотация нужна?", List.of(correct, new QuizOptionDraft(" ", false))));
+        assertThat(quizzes.findById(quizId).orElseThrow().getQuestions()).isEmpty();
+    }
+
+    @Test
+    void rejectsAddingQuestionByAnotherTeacher() {
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        Long otherTeacherId = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER)).getId();
+
+        assertThatThrownBy(() -> service.addQuestion(quizId, otherTeacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@ManyToOne", true), new QuizOptionDraft("@OneToMany", false))))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThat(quizzes.findById(quizId).orElseThrow().getQuestions()).isEmpty();
     }
 }
