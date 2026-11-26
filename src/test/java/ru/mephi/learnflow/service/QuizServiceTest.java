@@ -1,6 +1,7 @@
 package ru.mephi.learnflow.service;
 
 import jakarta.persistence.EntityManager;
+import org.hibernate.LazyInitializationException;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,8 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.entity.Category;
+import ru.mephi.learnflow.entity.Quiz;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.repository.CategoryRepository;
@@ -21,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -307,6 +311,30 @@ class QuizServiceTest {
                 .isInstanceOf(CourseTeacherRequiredException.class);
         assertThatThrownBy(() -> service.listQuizAttempts(quizId, studentId))
                 .isInstanceOf(CourseTeacherRequiredException.class);
+    }
+
+    @Test
+    void serviceViewRemainsReadableAfterTransactionCloses() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+        QuizDetails quiz = service.createQuiz(moduleId, teacherId, "Связи сущностей");
+        QuizQuestionDetails question = service.addQuestion(quiz.id(), teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+        entities.clear();
+
+        QuizView view = service.getQuizForStudent(quiz.id(), studentId);
+        entities.clear();
+        Quiz detached = quizzes.findById(quiz.id()).orElseThrow();
+        assertThat(entities.getEntityManagerFactory().getPersistenceUnitUtil()
+                .isLoaded(detached, "questions")).isFalse();
+        TestTransaction.end();
+
+        assertThatExceptionOfType(LazyInitializationException.class)
+                .isThrownBy(() -> detached.getQuestions().size());
+        assertThat(view.quiz()).isEqualTo(quiz);
+        assertThat(view.questions()).containsExactly(new QuizView.Question(question.id(), question.text(), List.of(
+                new QuizView.Option(question.options().getFirst().id(), "@OneToMany"),
+                new QuizView.Option(question.options().getLast().id(), "@ManyToOne"))));
     }
 
     @Test
