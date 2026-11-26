@@ -230,4 +230,40 @@ class QuizServiceTest {
                 () -> service.submitQuiz(quizId, studentId, Map.of(question.id(), Long.MAX_VALUE)));
         assertThat(attempts.findAllByQuiz_IdOrderByTakenAtDescIdDesc(quizId)).isEmpty();
     }
+
+    @Test
+    void studentSeesOnlyOwnAttemptsAcrossQuizzesAfterUnenrollment() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        Long secondStudentId = users.save(new User("Иван", "ivan@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+        enrollments.enrollStudent(courseId, secondStudentId);
+        Long secondModuleId = content.addModule(courseId, "Запросы").id();
+        Long firstQuizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        Long secondQuizId = service.createQuiz(secondModuleId, teacherId, "JPQL").id();
+        QuizQuestionDetails relation = service.addQuestion(firstQuizId, teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+        QuizQuestionDetails query = service.addQuestion(secondQuizId, teacherId, "Как прочитать данные?", List.of(
+                new QuizOptionDraft("DELETE", false), new QuizOptionDraft("SELECT", true)));
+        assertThat(service.listStudentAttempts(studentId)).isEmpty();
+
+        QuizAttemptDetails first = service.submitQuiz(firstQuizId, studentId,
+                Map.of(relation.id(), relation.options().getFirst().id()));
+        QuizAttemptDetails peer = service.submitQuiz(firstQuizId, secondStudentId,
+                Map.of(relation.id(), relation.options().getLast().id()));
+        QuizAttemptDetails last = service.submitQuiz(secondQuizId, studentId,
+                Map.of(query.id(), query.options().getLast().id()));
+        enrollments.unenrollStudent(courseId, studentId);
+        entities.flush();
+        entities.clear();
+
+        assertThat(service.listStudentAttempts(studentId)).containsExactly(last, first);
+        assertThat(service.listStudentAttempts(secondStudentId)).containsExactly(peer);
+    }
+
+    @Test
+    void rejectsHistoryForNonStudentOrMissingUser() {
+        assertThatIllegalArgumentException().isThrownBy(() -> service.listStudentAttempts(teacherId));
+        assertThatThrownBy(() -> service.listStudentAttempts(Long.MAX_VALUE))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
 }

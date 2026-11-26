@@ -8,10 +8,13 @@ import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.Question;
 import ru.mephi.learnflow.entity.Quiz;
 import ru.mephi.learnflow.entity.QuizSubmission;
+import ru.mephi.learnflow.entity.User;
+import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.repository.CourseModuleRepository;
 import ru.mephi.learnflow.repository.EnrollmentRepository;
 import ru.mephi.learnflow.repository.QuizRepository;
 import ru.mephi.learnflow.repository.QuizSubmissionRepository;
+import ru.mephi.learnflow.repository.UserRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -23,13 +26,15 @@ public class QuizService {
     private final CourseModuleRepository modules;
     private final EnrollmentRepository enrollments;
     private final QuizSubmissionRepository attempts;
+    private final UserRepository users;
 
     public QuizService(QuizRepository quizzes, CourseModuleRepository modules, EnrollmentRepository enrollments,
-                       QuizSubmissionRepository attempts) {
+                       QuizSubmissionRepository attempts, UserRepository users) {
         this.quizzes = quizzes;
         this.modules = modules;
         this.enrollments = enrollments;
         this.attempts = attempts;
+        this.users = users;
     }
 
     @Transactional
@@ -84,6 +89,18 @@ public class QuizService {
                 .orElseThrow(() -> new EnrollmentRequiredException(courseId, "прохождения викторины"));
         QuizSubmission attempt = quiz.gradeAttempt(enrollment.getStudent(), answers);
         return QuizAttemptDetails.from(attempts.save(attempt));
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizAttemptDetails> listStudentAttempts(Long studentId) {
+        User student = users.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Пользователь " + studentId + " не найден"));
+        if (student.getRole() != UserRole.STUDENT) {
+            throw new IllegalArgumentException("Просматривать историю своих попыток может только студент");
+        }
+        return attempts.findAllByStudent_IdOrderByTakenAtDescIdDesc(studentId).stream()
+                .map(QuizAttemptDetails::from)
+                .toList();
     }
 
     private Quiz requireQuiz(Long quizId) {
