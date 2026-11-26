@@ -2,9 +2,12 @@ package ru.mephi.learnflow.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.mephi.learnflow.dto.AssignmentDetails;
 import ru.mephi.learnflow.entity.Assignment;
 import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.Lesson;
+import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
+import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.AssignmentRepository;
 import ru.mephi.learnflow.repository.LessonRepository;
 

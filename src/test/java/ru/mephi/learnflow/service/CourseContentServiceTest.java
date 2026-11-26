@@ -6,9 +6,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import ru.mephi.learnflow.dto.CourseDetails;
+import ru.mephi.learnflow.dto.CourseModuleDetails;
+import ru.mephi.learnflow.dto.CourseProgram;
+import ru.mephi.learnflow.dto.LessonDetails;
 import ru.mephi.learnflow.entity.Category;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
+import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.CategoryRepository;
 import ru.mephi.learnflow.repository.UserRepository;
 

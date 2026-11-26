@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.service;
+package ru.mephi.learnflow.dto;
 
 public record QuizOptionDraft(String text, boolean correct) {
 }

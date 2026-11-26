@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.service;
+package ru.mephi.learnflow.exception;
 
 public class AlreadyEnrolledException extends RuntimeException {
 

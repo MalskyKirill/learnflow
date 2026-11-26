@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.service;
+package ru.mephi.learnflow.dto;
 
 import ru.mephi.learnflow.entity.QuizSubmission;
 
@@ -8,7 +8,7 @@ import java.util.List;
 public record QuizAttemptDetails(Long id, Long quizId, Long studentId, int score, Instant takenAt,
                                  List<Answer> answers) {
 
-    static QuizAttemptDetails from(QuizSubmission attempt) {
+    public static QuizAttemptDetails from(QuizSubmission attempt) {
         List<Answer> answers = attempt.getAnswers().stream()
                 .map(answer -> new Answer(answer.getQuestion().getId(), answer.getOption().getId()))
                 .toList();

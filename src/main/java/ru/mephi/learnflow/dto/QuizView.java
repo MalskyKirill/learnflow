@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.service;
+package ru.mephi.learnflow.dto;
 
 import ru.mephi.learnflow.entity.Quiz;
 
@@ -6,7 +6,7 @@ import java.util.List;
 
 public record QuizView(QuizDetails quiz, List<Question> questions) {
 
-    static QuizView from(Quiz quiz) {
+    public static QuizView from(Quiz quiz) {
         List<Question> questions = quiz.getQuestions().stream()
                 .map(question -> new Question(question.getId(), question.getText(), question.getOptions().stream()
                         .map(option -> new Option(option.getId(), option.getText()))
