@@ -12,9 +12,11 @@ import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.repository.CategoryRepository;
 import ru.mephi.learnflow.repository.QuizRepository;
+import ru.mephi.learnflow.repository.QuizSubmissionRepository;
 import ru.mephi.learnflow.repository.UserRepository;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -30,6 +32,9 @@ class QuizServiceTest {
 
     @Autowired
     private QuizRepository quizzes;
+
+    @Autowired
+    private QuizSubmissionRepository attempts;
 
     @Autowired
     private CourseService courses;
@@ -174,5 +179,55 @@ class QuizServiceTest {
 
         assertThatThrownBy(() -> service.getQuizForStudent(quiz.id(), studentId))
                 .isInstanceOf(EnrollmentRequiredException.class);
+    }
+
+    @Test
+    void savesEachQuizAttemptWithItsOwnScoreAndAnswers() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        QuizQuestionDetails relation = service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+        QuizQuestionDetails fetch = service.addQuestion(quizId, teacherId, "Как отложить загрузку?", List.of(
+                new QuizOptionDraft("EAGER", false), new QuizOptionDraft("LAZY", true)));
+        Long wrongOption = relation.options().getFirst().id();
+        Long rightOption = relation.options().getLast().id();
+        Long lazyOption = fetch.options().getLast().id();
+        entities.clear();
+
+        QuizAttemptDetails first = service.submitQuiz(quizId, studentId, Map.of(relation.id(), wrongOption));
+        QuizAttemptDetails second = service.submitQuiz(quizId, studentId,
+                Map.of(relation.id(), rightOption, fetch.id(), lazyOption));
+        entities.flush();
+        entities.clear();
+
+        assertThat(first.id()).isNotNull().isNotEqualTo(second.id());
+        assertThat(first.takenAt()).isNotNull();
+        assertThat(first.score()).isZero();
+        assertThat(first.answers()).containsExactly(new QuizAttemptDetails.Answer(relation.id(), wrongOption));
+        assertThat(second.studentId()).isEqualTo(studentId);
+        assertThat(second.quizId()).isEqualTo(quizId);
+        assertThat(second.score()).isEqualTo(2);
+        assertThat(second.answers()).containsExactly(
+                new QuizAttemptDetails.Answer(relation.id(), rightOption),
+                new QuizAttemptDetails.Answer(fetch.id(), lazyOption));
+        assertThat(attempts.findAllByQuiz_IdOrderByTakenAtDescIdDesc(quizId))
+                .extracting(QuizAttemptDetails::from).containsExactly(second, first);
+    }
+
+    @Test
+    void doesNotSaveAttemptWithoutEnrollmentOrWithUnknownAnswer() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        QuizQuestionDetails question = service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+
+        Map<Long, Long> correctAnswer = Map.of(question.id(), question.options().getLast().id());
+        assertThatThrownBy(() -> service.submitQuiz(quizId, studentId, correctAnswer))
+                .isInstanceOf(EnrollmentRequiredException.class);
+        enrollments.enrollStudent(courseId, studentId);
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> service.submitQuiz(quizId, studentId, Map.of(question.id(), Long.MAX_VALUE)));
+        assertThat(attempts.findAllByQuiz_IdOrderByTakenAtDescIdDesc(quizId)).isEmpty();
     }
 }

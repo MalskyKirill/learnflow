@@ -10,10 +10,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.Check;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,6 +44,7 @@ public class QuizSubmission {
     private Instant takenAt;
 
     @OneToMany(mappedBy = "submission", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
     private List<StudentAnswer> answers = new ArrayList<>();
 
     protected QuizSubmission() {
@@ -57,7 +60,7 @@ public class QuizSubmission {
         this.quiz = quiz;
         this.student = student;
         this.score = score;
-        this.takenAt = Instant.now();
+        this.takenAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     public Long getId() {

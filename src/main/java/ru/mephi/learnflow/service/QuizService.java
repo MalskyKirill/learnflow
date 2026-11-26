@@ -4,13 +4,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.CourseModule;
+import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.Question;
 import ru.mephi.learnflow.entity.Quiz;
+import ru.mephi.learnflow.entity.QuizSubmission;
 import ru.mephi.learnflow.repository.CourseModuleRepository;
 import ru.mephi.learnflow.repository.EnrollmentRepository;
 import ru.mephi.learnflow.repository.QuizRepository;
+import ru.mephi.learnflow.repository.QuizSubmissionRepository;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class QuizService {
@@ -18,11 +22,14 @@ public class QuizService {
     private final QuizRepository quizzes;
     private final CourseModuleRepository modules;
     private final EnrollmentRepository enrollments;
+    private final QuizSubmissionRepository attempts;
 
-    public QuizService(QuizRepository quizzes, CourseModuleRepository modules, EnrollmentRepository enrollments) {
+    public QuizService(QuizRepository quizzes, CourseModuleRepository modules, EnrollmentRepository enrollments,
+                       QuizSubmissionRepository attempts) {
         this.quizzes = quizzes;
         this.modules = modules;
         this.enrollments = enrollments;
+        this.attempts = attempts;
     }
 
     @Transactional
@@ -67,6 +74,16 @@ public class QuizService {
             throw new EnrollmentRequiredException(courseId, "просмотра викторины");
         }
         return QuizView.from(quiz);
+    }
+
+    @Transactional
+    public QuizAttemptDetails submitQuiz(Long quizId, Long studentId, Map<Long, Long> answers) {
+        Quiz quiz = requireQuiz(quizId);
+        Long courseId = quiz.getModule().getCourse().getId();
+        Enrollment enrollment = enrollments.findByStudentAndCourseForUpdate(studentId, courseId)
+                .orElseThrow(() -> new EnrollmentRequiredException(courseId, "прохождения викторины"));
+        QuizSubmission attempt = quiz.gradeAttempt(enrollment.getStudent(), answers);
+        return QuizAttemptDetails.from(attempts.save(attempt));
     }
 
     private Quiz requireQuiz(Long quizId) {
