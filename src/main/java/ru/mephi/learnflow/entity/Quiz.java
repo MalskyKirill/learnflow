@@ -40,6 +40,9 @@ public class Quiz {
     }
 
     public Quiz(CourseModule module, String title) {
+        if (title == null || title.isBlank() || title.length() > 255) {
+            throw new IllegalArgumentException("Название викторины должно содержать от 1 до 255 символов");
+        }
         this.module = module;
         this.title = title;
     }

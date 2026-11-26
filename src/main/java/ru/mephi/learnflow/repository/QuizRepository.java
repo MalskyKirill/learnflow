@@ -7,4 +7,6 @@ import java.util.Optional;
 
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
     Optional<Quiz> findByModule_Id(Long moduleId);
+
+    boolean existsByModule_Id(Long moduleId);
 }
