@@ -3,6 +3,10 @@ package ru.mephi.learnflow.service;
 public class EnrollmentRequiredException extends RuntimeException {
 
     public EnrollmentRequiredException(Long courseId) {
-        super("Для отправки решения нужно записаться на курс " + courseId);
+        this(courseId, "отправки решения");
+    }
+
+    public EnrollmentRequiredException(Long courseId, String action) {
+        super("Для " + action + " нужно записаться на курс " + courseId);
     }
 }

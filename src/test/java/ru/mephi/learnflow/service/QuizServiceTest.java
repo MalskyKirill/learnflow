@@ -38,6 +38,9 @@ class QuizServiceTest {
     private CourseContentService content;
 
     @Autowired
+    private EnrollmentService enrollments;
+
+    @Autowired
     private CategoryRepository categories;
 
     @Autowired
@@ -48,12 +51,13 @@ class QuizServiceTest {
 
     private Long moduleId;
     private Long teacherId;
+    private Long courseId;
 
     @BeforeEach
     void createCourseAndModule() {
         teacherId = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER)).getId();
         Long categoryId = categories.save(new Category("Базы данных")).getId();
-        Long courseId = courses.createCourse("ORM", null, categoryId, teacherId).id();
+        courseId = courses.createCourse("ORM", null, categoryId, teacherId).id();
         moduleId = content.addModule(courseId, "Основы").id();
         entities.clear();
     }
@@ -134,5 +138,41 @@ class QuizServiceTest {
                 new QuizOptionDraft("@ManyToOne", true), new QuizOptionDraft("@OneToMany", false))))
                 .isInstanceOf(CourseTeacherRequiredException.class);
         assertThat(quizzes.findById(quizId).orElseThrow().getQuestions()).isEmpty();
+    }
+
+    @Test
+    void enrolledStudentSeesQuestionsAndOptionsInOrder() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+        QuizDetails quiz = service.createQuiz(moduleId, teacherId, "Связи сущностей");
+        QuizQuestionDetails relation = service.addQuestion(quiz.id(), teacherId, "Какая аннотация нужна?", List.of(
+                new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+        QuizQuestionDetails fetch = service.addQuestion(quiz.id(), teacherId, "Как отложить загрузку?", List.of(
+                new QuizOptionDraft("EAGER", false), new QuizOptionDraft("LAZY", true)));
+        entities.clear();
+
+        QuizView view = service.getQuizForStudent(quiz.id(), studentId);
+
+        assertThat(view.quiz()).isEqualTo(quiz);
+        assertThat(view.questions()).containsExactly(
+                new QuizView.Question(relation.id(), relation.text(), List.of(
+                        new QuizView.Option(relation.options().getFirst().id(), "@OneToMany"),
+                        new QuizView.Option(relation.options().getLast().id(), "@ManyToOne"))),
+                new QuizView.Question(fetch.id(), fetch.text(), List.of(
+                        new QuizView.Option(fetch.options().getFirst().id(), "EAGER"),
+                        new QuizView.Option(fetch.options().getLast().id(), "LAZY"))));
+    }
+
+    @Test
+    void rejectsQuizViewAfterUnenrollment() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        QuizDetails quiz = service.createQuiz(moduleId, teacherId, "Связи сущностей");
+        enrollments.enrollStudent(courseId, studentId);
+        assertThat(service.getQuizForStudent(quiz.id(), studentId).questions()).isEmpty();
+
+        enrollments.unenrollStudent(courseId, studentId);
+
+        assertThatThrownBy(() -> service.getQuizForStudent(quiz.id(), studentId))
+                .isInstanceOf(EnrollmentRequiredException.class);
     }
 }

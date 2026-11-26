@@ -7,6 +7,7 @@ import ru.mephi.learnflow.entity.CourseModule;
 import ru.mephi.learnflow.entity.Question;
 import ru.mephi.learnflow.entity.Quiz;
 import ru.mephi.learnflow.repository.CourseModuleRepository;
+import ru.mephi.learnflow.repository.EnrollmentRepository;
 import ru.mephi.learnflow.repository.QuizRepository;
 
 import java.util.List;
@@ -16,10 +17,12 @@ public class QuizService {
 
     private final QuizRepository quizzes;
     private final CourseModuleRepository modules;
+    private final EnrollmentRepository enrollments;
 
-    public QuizService(QuizRepository quizzes, CourseModuleRepository modules) {
+    public QuizService(QuizRepository quizzes, CourseModuleRepository modules, EnrollmentRepository enrollments) {
         this.quizzes = quizzes;
         this.modules = modules;
+        this.enrollments = enrollments;
     }
 
     @Transactional
@@ -35,8 +38,7 @@ public class QuizService {
 
     @Transactional
     public QuizQuestionDetails addQuestion(Long quizId, Long teacherId, String text, List<QuizOptionDraft> options) {
-        Quiz quiz = quizzes.findById(quizId)
-                .orElseThrow(() -> new ResourceNotFoundException("Викторина " + quizId + " не найдена"));
+        Quiz quiz = requireQuiz(quizId);
         requireCourseTeacher(quiz.getModule().getCourse(), teacherId);
         if (text == null || text.isBlank()) {
             throw new IllegalArgumentException("Текст вопроса не должен быть пустым");
@@ -55,6 +57,21 @@ public class QuizService {
         options.forEach(option -> question.addOption(option.text(), option.correct()));
         quizzes.flush();
         return QuizQuestionDetails.from(question);
+    }
+
+    @Transactional(readOnly = true)
+    public QuizView getQuizForStudent(Long quizId, Long studentId) {
+        Quiz quiz = requireQuiz(quizId);
+        Long courseId = quiz.getModule().getCourse().getId();
+        if (enrollments.findByStudent_IdAndCourse_Id(studentId, courseId).isEmpty()) {
+            throw new EnrollmentRequiredException(courseId, "просмотра викторины");
+        }
+        return QuizView.from(quiz);
+    }
+
+    private Quiz requireQuiz(Long quizId) {
+        return quizzes.findById(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Викторина " + quizId + " не найдена"));
     }
 
     private void requireCourseTeacher(Course course, Long teacherId) {
