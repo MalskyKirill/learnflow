@@ -99,4 +99,12 @@ public class Quiz {
         }
         return List.copyOf(selected);
     }
+
+    public QuizSubmission gradeAttempt(User student, Map<Long, Long> answers) {
+        List<AnswerOption> selected = resolveSelectedOptions(answers);
+        int score = (int) selected.stream().filter(AnswerOption::isCorrect).count();
+        QuizSubmission attempt = new QuizSubmission(this, student, score);
+        selected.forEach(attempt::addAnswer);
+        return attempt;
+    }
 }

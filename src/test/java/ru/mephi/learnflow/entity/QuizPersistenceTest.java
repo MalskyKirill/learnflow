@@ -158,4 +158,35 @@ class QuizPersistenceTest {
         assertThatIllegalArgumentException().isThrownBy(
                 () -> loaded.resolveSelectedOptions(Collections.singletonMap(null, manyToOne.getId())));
     }
+
+    @Test
+    void scoresCorrectAnswersAndRetainsWrongAnswers() {
+        Question relation = quiz.addQuestion("Какая связь нужна?");
+        AnswerOption manyToOne = relation.addOption("@ManyToOne", true);
+        Question fetch = quiz.addQuestion("Как отложить загрузку?");
+        AnswerOption eager = fetch.addOption("EAGER", false);
+        fetch.addOption("LAZY", true);
+        Question collection = quiz.addQuestion("Как описать коллекцию уроков?");
+        AnswerOption oneToMany = collection.addOption("@OneToMany", true);
+        quiz.addQuestion("Какой кэш привязан к сессии?").addOption("Кэш первого уровня", true);
+        entities.persist(quiz);
+        entities.flush();
+        entities.clear();
+
+        Quiz loaded = entities.find(Quiz.class, quiz.getId());
+        QuizSubmission mixed = loaded.gradeAttempt(student, Map.of(
+                relation.getId(), manyToOne.getId(),
+                fetch.getId(), eager.getId(),
+                collection.getId(), oneToMany.getId()));
+
+        assertThat(mixed.getScore()).isEqualTo(2);
+        assertThat(mixed.getStudent().getId()).isEqualTo(student.getId());
+        assertThat(mixed.getQuiz().getId()).isEqualTo(quiz.getId());
+        assertThat(mixed.getAnswers()).extracting(answer -> answer.getOption().getId())
+                .containsExactly(manyToOne.getId(), eager.getId(), oneToMany.getId());
+
+        QuizSubmission blank = loaded.gradeAttempt(student, Map.of());
+        assertThat(blank.getScore()).isZero();
+        assertThat(blank.getAnswers()).isEmpty();
+    }
 }
