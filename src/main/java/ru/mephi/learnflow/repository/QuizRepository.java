@@ -1,12 +1,27 @@
 package ru.mephi.learnflow.repository;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import ru.mephi.learnflow.entity.Question;
 import ru.mephi.learnflow.entity.Quiz;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface QuizRepository extends JpaRepository<Quiz, Long> {
     Optional<Quiz> findByModule_Id(Long moduleId);
 
     boolean existsByModule_Id(Long moduleId);
+
+    @EntityGraph(attributePaths = "module.course")
+    Optional<Quiz> findWithCourseById(Long id);
+
+    @EntityGraph(attributePaths = {"module", "questions"})
+    Optional<Quiz> findWithQuestionsById(Long id);
+
+    // Варианты загружаются отдельно, чтобы Hibernate не соединял две коллекции List.
+    @Query("select q from Question q left join fetch q.options where q.quiz.id = :quizId")
+    List<Question> findQuestionsWithOptionsByQuizId(@Param("quizId") Long quizId);
 }

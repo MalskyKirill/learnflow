@@ -73,20 +73,22 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public QuizView getQuizForStudent(Long quizId, Long studentId) {
-        Quiz quiz = requireQuiz(quizId);
+        Quiz quiz = requireQuizWithQuestions(quizId);
         Long courseId = quiz.getModule().getCourse().getId();
         if (enrollments.findByStudent_IdAndCourse_Id(studentId, courseId).isEmpty()) {
             throw new EnrollmentRequiredException(courseId, "просмотра викторины");
         }
+        quizzes.findQuestionsWithOptionsByQuizId(quizId);
         return QuizView.from(quiz);
     }
 
     @Transactional
     public QuizAttemptDetails submitQuiz(Long quizId, Long studentId, Map<Long, Long> answers) {
-        Quiz quiz = requireQuiz(quizId);
+        Quiz quiz = requireQuizWithQuestions(quizId);
         Long courseId = quiz.getModule().getCourse().getId();
         Enrollment enrollment = enrollments.findByStudentAndCourseForUpdate(studentId, courseId)
                 .orElseThrow(() -> new EnrollmentRequiredException(courseId, "прохождения викторины"));
+        quizzes.findQuestionsWithOptionsByQuizId(quizId);
         QuizSubmission attempt = quiz.gradeAttempt(enrollment.getStudent(), answers);
         return QuizAttemptDetails.from(attempts.save(attempt));
     }
@@ -113,8 +115,15 @@ public class QuizService {
     }
 
     private Quiz requireQuiz(Long quizId) {
-        return quizzes.findById(quizId)
-                .orElseThrow(() -> new ResourceNotFoundException("Викторина " + quizId + " не найдена"));
+        return quizzes.findWithCourseById(quizId).orElseThrow(() -> quizNotFound(quizId));
+    }
+
+    private Quiz requireQuizWithQuestions(Long quizId) {
+        return quizzes.findWithQuestionsById(quizId).orElseThrow(() -> quizNotFound(quizId));
+    }
+
+    private ResourceNotFoundException quizNotFound(Long quizId) {
+        return new ResourceNotFoundException("Викторина " + quizId + " не найдена");
     }
 
     private void requireCourseTeacher(Course course, Long teacherId) {

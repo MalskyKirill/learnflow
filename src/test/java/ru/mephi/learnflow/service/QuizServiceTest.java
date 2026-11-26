@@ -1,6 +1,8 @@
 package ru.mephi.learnflow.service;
 
 import jakarta.persistence.EntityManager;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -305,5 +307,48 @@ class QuizServiceTest {
                 .isInstanceOf(CourseTeacherRequiredException.class);
         assertThatThrownBy(() -> service.listQuizAttempts(quizId, studentId))
                 .isInstanceOf(CourseTeacherRequiredException.class);
+    }
+
+    @Test
+    void loadsQuizAndAttemptListsWithBoundedSqlQueries() {
+        Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
+        enrollments.enrollStudent(courseId, studentId);
+        Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
+        QuizQuestionDetails firstQuestion = service.addQuestion(quizId, teacherId, "Первый вопрос", List.of(
+                new QuizOptionDraft("Первый вариант", true), new QuizOptionDraft("Второй вариант", false)));
+        for (String question : List.of("Второй вопрос", "Третий вопрос", "Четвёртый вопрос")) {
+            service.addQuestion(quizId, teacherId, question, List.of(
+                    new QuizOptionDraft("Первый вариант", true), new QuizOptionDraft("Второй вариант", false)));
+        }
+        Map<Long, Long> answer = Map.of(firstQuestion.id(), firstQuestion.options().getFirst().id());
+        service.submitQuiz(quizId, studentId, answer);
+        service.submitQuiz(quizId, studentId, answer);
+        service.submitQuiz(quizId, studentId, Map.of());
+        entities.flush();
+
+        Statistics statistics = entities.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+        boolean statisticsWereEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        try {
+            long viewQueries = countStatements(statistics,
+                    () -> assertThat(service.getQuizForStudent(quizId, studentId).questions()).hasSize(4));
+            long studentQueries = countStatements(statistics,
+                    () -> assertThat(service.listStudentAttempts(studentId)).hasSize(3));
+            long teacherQueries = countStatements(statistics,
+                    () -> assertThat(service.listQuizAttempts(quizId, teacherId)).hasSize(3));
+
+            assertThat(List.of(viewQueries, studentQueries, teacherQueries))
+                    .as("SQL для просмотра викторины, истории студента и результатов преподавателя")
+                    .containsExactly(3L, 2L, 2L);
+        } finally {
+            statistics.setStatisticsEnabled(statisticsWereEnabled);
+        }
+    }
+
+    private long countStatements(Statistics statistics, Runnable read) {
+        entities.clear();
+        long before = statistics.getPrepareStatementCount();
+        read.run();
+        return statistics.getPrepareStatementCount() - before;
     }
 }
