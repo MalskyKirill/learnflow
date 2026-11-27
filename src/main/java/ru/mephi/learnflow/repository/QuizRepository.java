@@ -18,10 +18,19 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     @EntityGraph(attributePaths = "module.course")
     Optional<Quiz> findWithCourseById(Long id);
 
-    @EntityGraph(attributePaths = {"module", "questions"})
+    @EntityGraph(attributePaths = {"module.course", "questions"})
     Optional<Quiz> findWithQuestionsById(Long id);
+
+    @EntityGraph(attributePaths = {"module.course", "questions"})
+    Optional<Quiz> findWithQuestionsByModule_Id(Long moduleId);
 
     // Варианты загружаются отдельно, чтобы Hibernate не соединял две коллекции List.
     @Query("select q from Question q left join fetch q.options where q.quiz.id = :quizId")
     List<Question> findQuestionsWithOptionsByQuizId(@Param("quizId") Long quizId);
+
+    @Query("""
+            select q from Question q left join fetch q.options
+            where q.quiz.id = :quizId and q.id = :questionId
+            """)
+    Optional<Question> findQuestionWithOptions(@Param("quizId") Long quizId, @Param("questionId") Long questionId);
 }

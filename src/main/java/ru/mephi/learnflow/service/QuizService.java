@@ -7,6 +7,7 @@ import ru.mephi.learnflow.dto.QuizDetails;
 import ru.mephi.learnflow.dto.QuizOptionDraft;
 import ru.mephi.learnflow.dto.QuizQuestionDetails;
 import ru.mephi.learnflow.dto.QuizView;
+import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.CourseModule;
 import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.Question;
@@ -80,14 +81,23 @@ public class QuizService {
     }
 
     @Transactional(readOnly = true)
-    public QuizView getQuizForStudent(Long quizId, Long studentId) {
-        Quiz quiz = requireQuizWithQuestions(quizId);
-        Long courseId = quiz.getModule().getCourse().getId();
-        if (enrollments.findByStudent_IdAndCourse_Id(studentId, courseId).isEmpty()) {
-            throw new EnrollmentRequiredException(courseId, "просмотра викторины");
-        }
-        quizzes.findQuestionsWithOptionsByQuizId(quizId);
-        return QuizView.from(quiz);
+    public QuizView getQuiz(Long quizId, Long actorId) {
+        return quizView(requireQuizWithQuestions(quizId), actorId);
+    }
+
+    @Transactional(readOnly = true)
+    public QuizView getQuizByModule(Long moduleId, Long actorId) {
+        Quiz quiz = quizzes.findWithQuestionsByModule_Id(moduleId)
+                .orElseThrow(() -> new ResourceNotFoundException("В модуле " + moduleId + " нет викторины"));
+        return quizView(quiz, actorId);
+    }
+
+    @Transactional(readOnly = true)
+    public QuizQuestionDetails getQuestionForTeacher(Long quizId, Long questionId, Long teacherId) {
+        Quiz quiz = requireQuiz(quizId);
+        quiz.getModule().getCourse().requireTeacher(teacherId);
+        return quizzes.findQuestionWithOptions(quizId, questionId).map(QuizQuestionDetails::from)
+                .orElseThrow(() -> new ResourceNotFoundException("Вопрос " + questionId + " не найден"));
     }
 
     @Transactional
@@ -120,6 +130,16 @@ public class QuizService {
         return attempts.findAllByQuiz_IdOrderByTakenAtDescIdDesc(quizId).stream()
                 .map(QuizAttemptDetails::from)
                 .toList();
+    }
+
+    private QuizView quizView(Quiz quiz, Long actorId) {
+        Course course = quiz.getModule().getCourse();
+        if (!course.isTaughtBy(actorId)
+                && enrollments.findByStudent_IdAndCourse_Id(actorId, course.getId()).isEmpty()) {
+            throw new EnrollmentRequiredException(course.getId(), "просмотра викторины");
+        }
+        quizzes.findQuestionsWithOptionsByQuizId(quiz.getId());
+        return QuizView.from(quiz);
     }
 
     private Quiz requireQuiz(Long quizId) {

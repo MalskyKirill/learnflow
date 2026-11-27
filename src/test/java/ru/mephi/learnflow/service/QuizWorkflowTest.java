@@ -71,7 +71,7 @@ class QuizWorkflowTest {
                 new QuizOptionDraft("LAZY", true), new QuizOptionDraft("EAGER", false)));
         enrollments.enrollStudent(courseId, studentId);
 
-        QuizView view = quizzes.getQuizForStudent(quizId, studentId);
+        QuizView view = quizzes.getQuiz(quizId, studentId);
         assertThat(view.quiz()).isEqualTo(quiz);
         assertThat(view.questions()).extracting(QuizView.Question::text)
                 .containsExactly("Какая аннотация описывает связь многие к одному?", "Как отложить загрузку?");

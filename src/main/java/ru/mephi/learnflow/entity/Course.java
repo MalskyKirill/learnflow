@@ -92,9 +92,13 @@ public class Course {
     }
 
     public void requireTeacher(Long actorId) {
-        if (actorId == null || !actorId.equals(teacher.getId())) {
+        if (!isTaughtBy(actorId)) {
             throw new CourseTeacherRequiredException(id);
         }
+    }
+
+    public boolean isTaughtBy(Long actorId) {
+        return actorId != null && actorId.equals(teacher.getId());
     }
 
     public List<CourseModule> getModules() {

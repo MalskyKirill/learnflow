@@ -171,7 +171,7 @@ class QuizServiceTest {
                 new QuizOptionDraft("EAGER", false), new QuizOptionDraft("LAZY", true)));
         entities.clear();
 
-        QuizView view = service.getQuizForStudent(quiz.id(), studentId);
+        QuizView view = service.getQuiz(quiz.id(), studentId);
 
         assertThat(view.quiz()).isEqualTo(quiz);
         assertThat(view.questions()).containsExactly(
@@ -188,11 +188,11 @@ class QuizServiceTest {
         Long studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
         QuizDetails quiz = service.createQuiz(moduleId, teacherId, "Связи сущностей");
         enrollments.enrollStudent(courseId, studentId);
-        assertThat(service.getQuizForStudent(quiz.id(), studentId).questions()).isEmpty();
+        assertThat(service.getQuiz(quiz.id(), studentId).questions()).isEmpty();
 
         enrollments.unenrollStudent(courseId, studentId);
 
-        assertThatThrownBy(() -> service.getQuizForStudent(quiz.id(), studentId))
+        assertThatThrownBy(() -> service.getQuiz(quiz.id(), studentId))
                 .isInstanceOf(EnrollmentRequiredException.class);
     }
 
@@ -331,7 +331,7 @@ class QuizServiceTest {
                 new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
         entities.clear();
 
-        QuizView view = service.getQuizForStudent(quiz.id(), studentId);
+        QuizView view = service.getQuiz(quiz.id(), studentId);
         entities.clear();
         Quiz detached = quizzes.findById(quiz.id()).orElseThrow();
         assertThat(entities.getEntityManagerFactory().getPersistenceUnitUtil()
@@ -368,7 +368,7 @@ class QuizServiceTest {
         statistics.setStatisticsEnabled(true);
         try {
             long viewQueries = countStatements(statistics,
-                    () -> assertThat(service.getQuizForStudent(quizId, studentId).questions()).hasSize(4));
+                    () -> assertThat(service.getQuiz(quizId, studentId).questions()).hasSize(4));
             long studentQueries = countStatements(statistics,
                     () -> assertThat(service.listStudentAttempts(studentId)).hasSize(3));
             long teacherQueries = countStatements(statistics,
