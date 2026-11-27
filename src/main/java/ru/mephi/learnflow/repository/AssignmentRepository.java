@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
-    List<Assignment> findAllByLesson_Id(Long lessonId);
+    List<Assignment> findAllByLesson_IdOrderByIdAsc(Long lessonId);
 
     @EntityGraph(attributePaths = "lesson.module")
     Optional<Assignment> findWithLessonAndModuleById(Long id);

@@ -72,7 +72,7 @@ class AssignmentServiceTest {
         entities.clear();
 
         assertThat(created.id()).isNotNull();
-        assertThat(assignments.findAllByLesson_Id(lessonId)).singleElement()
+        assertThat(assignments.findAllByLesson_IdOrderByIdAsc(lessonId)).singleElement()
                 .extracting(AssignmentDetails::from)
                 .isEqualTo(new AssignmentDetails(
                         created.id(), lessonId, "JPA-связи", "Опишите связи сущностей", deadline, 20));
@@ -87,13 +87,13 @@ class AssignmentServiceTest {
                 .isInstanceOf(CourseTeacherRequiredException.class);
         assertThatThrownBy(() -> service.createAssignment(lessonId, studentId, "Задание", null, null, 20))
                 .isInstanceOf(CourseTeacherRequiredException.class);
-        assertThat(assignments.findAllByLesson_Id(lessonId)).isEmpty();
+        assertThat(assignments.findAllByLesson_IdOrderByIdAsc(lessonId)).isEmpty();
     }
 
     @Test
     void rejectsInvalidMaximumScore() {
         assertThatIllegalArgumentException().isThrownBy(
                 () -> service.createAssignment(lessonId, teacherId, "Задание", null, null, 0));
-        assertThat(assignments.findAllByLesson_Id(lessonId)).isEmpty();
+        assertThat(assignments.findAllByLesson_IdOrderByIdAsc(lessonId)).isEmpty();
     }
 }
