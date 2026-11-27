@@ -53,10 +53,15 @@ public class EnrollmentService {
         enrollments.findByStudentAndCourseForUpdate(studentId, courseId).ifPresent(enrollments::delete);
     }
 
-    public List<StudentDetails> listStudents(Long courseId) {
-        if (!courses.existsById(courseId)) {
-            throw courseNotFound(courseId);
-        }
+    public EnrollmentDetails getEnrollment(Long courseId, Long studentId) {
+        return enrollments.findByStudent_IdAndCourse_Id(studentId, courseId)
+                .map(EnrollmentDetails::from)
+                .orElseThrow(() -> new ResourceNotFoundException("Запись на курс " + courseId + " не найдена"));
+    }
+
+    public List<StudentDetails> listStudents(Long courseId, Long teacherId) {
+        Course course = courses.findById(courseId).orElseThrow(() -> courseNotFound(courseId));
+        course.requireTeacher(teacherId);
         return enrollments.findStudentsByCourseId(courseId).stream().map(StudentDetails::from).toList();
     }
 

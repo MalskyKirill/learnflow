@@ -98,24 +98,24 @@ class EnrollmentServiceTest {
         CourseDetails sql = courses.createCourse("SQL", null, category.getId(), teacher.getId());
         StudentDetails annaDetails = new StudentDetails(anna.getId(), anna.getName());
         StudentDetails ivanDetails = new StudentDetails(ivan.getId(), ivan.getName());
-        assertThat(service.listStudents(orm.id())).isEmpty();
+        assertThat(service.listStudents(orm.id(), teacher.getId())).isEmpty();
         assertThat(service.listCourses(anna.getId())).isEmpty();
 
         service.enrollStudent(orm.id(), anna.getId());
         service.enrollStudent(orm.id(), ivan.getId());
         service.enrollStudent(sql.id(), anna.getId());
 
-        assertThat(service.listStudents(orm.id())).containsExactly(annaDetails, ivanDetails);
+        assertThat(service.listStudents(orm.id(), teacher.getId())).containsExactly(annaDetails, ivanDetails);
         assertThat(service.listCourses(anna.getId())).containsExactly(orm, sql);
 
         service.unenrollStudent(orm.id(), anna.getId());
         service.unenrollStudent(orm.id(), anna.getId());
 
-        assertThat(service.listStudents(orm.id())).containsExactly(ivanDetails);
+        assertThat(service.listStudents(orm.id(), teacher.getId())).containsExactly(ivanDetails);
         assertThat(service.listCourses(anna.getId())).containsExactly(sql);
 
         service.enrollStudent(orm.id(), anna.getId());
-        assertThat(service.listStudents(orm.id())).containsExactly(ivanDetails, annaDetails);
+        assertThat(service.listStudents(orm.id(), teacher.getId())).containsExactly(ivanDetails, annaDetails);
     }
 
     @Test
