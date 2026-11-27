@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import ru.mephi.learnflow.entity.QuizSubmission;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface QuizSubmissionRepository extends JpaRepository<QuizSubmission, Long> {
     @EntityGraph(attributePaths = "answers")
@@ -12,4 +13,7 @@ public interface QuizSubmissionRepository extends JpaRepository<QuizSubmission, 
 
     @EntityGraph(attributePaths = "answers")
     List<QuizSubmission> findAllByQuiz_IdOrderByTakenAtDescIdDesc(Long quizId);
+
+    @EntityGraph(attributePaths = {"answers", "quiz.module.course"})
+    Optional<QuizSubmission> findWithAnswersAndCourseById(Long id);
 }

@@ -30,6 +30,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/assignments/{assignmentId}/submissions")
                         .hasRole(UserRole.STUDENT.name())
                         .requestMatchers(HttpMethod.GET, "/api/me/submissions").hasRole(UserRole.STUDENT.name())
+                        .requestMatchers(HttpMethod.POST, "/api/quizzes/{quizId}/attempts")
+                        .hasRole(UserRole.STUDENT.name())
+                        .requestMatchers(HttpMethod.GET, "/api/me/quiz-attempts").hasRole(UserRole.STUDENT.name())
                         .anyRequest().authenticated())
                 .httpBasic(basic -> basic.authenticationEntryPoint(problems))
                 .exceptionHandling(exceptions -> exceptions

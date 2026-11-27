@@ -90,7 +90,7 @@ public class Quiz {
             AnswerOption option = question.getOptions().stream()
                     .filter(candidate -> optionId.equals(candidate.getId()))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(
+                    .orElseThrow(() -> new InvalidInputException(
                             "Вариант ответа " + optionId + " не относится к вопросу " + questionId));
             selected.add(option);
         }

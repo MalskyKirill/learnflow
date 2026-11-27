@@ -16,9 +16,12 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
+import ru.mephi.learnflow.dto.QuizOptionDraft;
+import ru.mephi.learnflow.dto.QuizQuestionDetails;
 import ru.mephi.learnflow.dto.request.CreateQuizQuestionRequest;
 import ru.mephi.learnflow.dto.request.CreateQuizQuestionRequest.Option;
 import ru.mephi.learnflow.dto.request.CreateQuizRequest;
+import ru.mephi.learnflow.dto.request.SubmitQuizAttemptRequest;
 import ru.mephi.learnflow.entity.Category;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
@@ -31,8 +34,10 @@ import ru.mephi.learnflow.service.QuizService;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -47,6 +52,7 @@ class QuizControllerTest {
     private static final String PASSWORD = "quiz-api-test-password";
     private static final String MODULE_QUIZ = "/api/modules/{moduleId}/quiz";
     private static final String QUESTIONS = "/api/quizzes/{quizId}/questions";
+    private static final String ATTEMPTS = "/api/quizzes/{quizId}/attempts";
 
     @Autowired
     private WebApplicationContext context;
@@ -152,6 +158,93 @@ class QuizControllerTest {
         http.perform(post(MODULE_QUIZ, moduleId).with(credentials).contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(new CreateQuizRequest("Вторая викторина"))))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void storesRepeatAttemptsAndReturnsResultsForStudentAndTeacher() throws Exception {
+        enrollments.enrollStudent(courseId, student.getId());
+        Long quizId = quizzes.createQuiz(moduleId, teacher.getId(), "Связи сущностей").id();
+        QuizQuestionDetails question = addRelationQuestion(quizId);
+        Long wrongOption = question.options().getFirst().id();
+        Long correctOption = question.options().getLast().id();
+        RequestPostProcessor credentials = authenticatedWrite(student);
+
+        MvcResult first = http.perform(post(ATTEMPTS, quizId).with(credentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(attemptJson(question.id(), wrongOption)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.score").value(0)).andReturn();
+        MvcResult retry = http.perform(post(ATTEMPTS, quizId).with(credentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(attemptJson(question.id(), correctOption)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.score").value(1))
+                .andExpect(jsonPath("$.takenAt").isNotEmpty())
+                .andExpect(jsonPath("$.answers[0].optionId").value(is(correctOption), Long.class))
+                .andReturn();
+        assertThat(location(retry)).isNotEqualTo(location(first));
+
+        HttpHeaders learner = basic(student.getEmail(), PASSWORD);
+        HttpHeaders instructor = basic(teacher.getEmail(), PASSWORD);
+        http.perform(get(location(first)).headers(learner))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.score").value(0));
+        http.perform(get(location(retry)).headers(instructor))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.score").value(1));
+        http.perform(get("/api/me/quiz-attempts").headers(learner)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].score").value(1)).andExpect(jsonPath("$[1].score").value(0));
+        http.perform(get(ATTEMPTS, quizId).headers(instructor)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].score").value(1)).andExpect(jsonPath("$[1].score").value(0));
+    }
+
+    @Test
+    void restrictsParticipationAndAccessToAttempts() throws Exception {
+        Long quizId = quizzes.createQuiz(moduleId, teacher.getId(), "Связи сущностей").id();
+        QuizQuestionDetails question = addRelationQuestion(quizId);
+        String answers = attemptJson(question.id(), question.options().getLast().id());
+        User peer = createAccount("Иван", "quiz-api-peer@example.org", UserRole.STUDENT);
+        User outsider = createAccount("Ирина", "quiz-api-outsider@example.org", UserRole.TEACHER);
+        enrollments.enrollStudent(courseId, student.getId());
+        MvcResult own = http.perform(post(ATTEMPTS, quizId).with(authenticatedWrite(student))
+                        .contentType(MediaType.APPLICATION_JSON).content(answers))
+                .andExpect(status().isCreated()).andReturn();
+
+        http.perform(post(ATTEMPTS, quizId).with(authenticatedWrite(peer))
+                        .contentType(MediaType.APPLICATION_JSON).content(answers))
+                .andExpect(status().isForbidden());
+        http.perform(post(ATTEMPTS, quizId).with(authenticatedWrite(teacher))
+                        .contentType(MediaType.APPLICATION_JSON).content(answers))
+                .andExpect(status().isForbidden());
+        http.perform(get(location(own)).headers(basic(peer.getEmail(), PASSWORD)))
+                .andExpect(status().isForbidden());
+        http.perform(get(ATTEMPTS, quizId).headers(basic(outsider.getEmail(), PASSWORD)))
+                .andExpect(status().isForbidden());
+        http.perform(get("/api/me/quiz-attempts").headers(basic(peer.getEmail(), PASSWORD)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void invalidAnswersDoNotCreateAttempt() throws Exception {
+        enrollments.enrollStudent(courseId, student.getId());
+        Long quizId = quizzes.createQuiz(moduleId, teacher.getId(), "Связи сущностей").id();
+        QuizQuestionDetails question = addRelationQuestion(quizId);
+        RequestPostProcessor credentials = authenticatedWrite(student);
+
+        http.perform(post(ATTEMPTS, quizId).with(credentials).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("answers"));
+        http.perform(post(ATTEMPTS, quizId).with(credentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(attemptJson(question.id(), 0L)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors").isArray());
+        http.perform(post(ATTEMPTS, quizId).with(credentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(attemptJson(question.id(), Long.MAX_VALUE)))
+                .andExpect(status().isBadRequest());
+        http.perform(get("/api/me/quiz-attempts").headers(basic(student.getEmail(), PASSWORD)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+    }
+
+    private QuizQuestionDetails addRelationQuestion(Long quizId) {
+        return quizzes.addQuestion(quizId, teacher.getId(), "Какая аннотация нужна?",
+                List.of(new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));
+    }
+
+    private String attemptJson(Long questionId, Long optionId) throws Exception {
+        return json.writeValueAsString(new SubmitQuizAttemptRequest(Map.of(questionId, optionId)));
     }
 
     private String questionJson() throws Exception {

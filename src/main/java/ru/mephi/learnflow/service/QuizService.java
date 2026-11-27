@@ -132,6 +132,16 @@ public class QuizService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public QuizAttemptDetails getAttempt(Long attemptId, Long actorId) {
+        QuizSubmission attempt = attempts.findWithAnswersAndCourseById(attemptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Попытка " + attemptId + " не найдена"));
+        if (!attempt.getStudent().getId().equals(actorId)) {
+            attempt.getQuiz().getModule().getCourse().requireTeacher(actorId);
+        }
+        return QuizAttemptDetails.from(attempt);
+    }
+
     private QuizView quizView(Quiz quiz, Long actorId) {
         Course course = quiz.getModule().getCourse();
         if (!course.isTaughtBy(actorId)
