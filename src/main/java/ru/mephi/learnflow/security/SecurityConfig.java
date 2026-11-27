@@ -12,6 +12,7 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.repository.UserRepository;
 
 @Configuration
@@ -22,7 +23,8 @@ public class SecurityConfig {
         CookieCsrfTokenRepository csrfTokens = new CookieCsrfTokenRepository();
         csrfTokens.setCookieCustomizer(cookie -> cookie.sameSite("Strict"));
         return http.authorizeHttpRequests(requests -> requests
-                        .requestMatchers(HttpMethod.GET, "/api/courses").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/courses", "/api/courses/{courseId:[0-9]+}").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/courses").hasRole(UserRole.TEACHER.name())
                         .anyRequest().authenticated())
                 .httpBasic(basic -> basic.authenticationEntryPoint(problems))
                 .exceptionHandling(exceptions -> exceptions

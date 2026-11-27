@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import ru.mephi.learnflow.exception.AlreadyEnrolledException;
 import ru.mephi.learnflow.exception.AlreadySubmittedException;
@@ -20,6 +21,8 @@ import ru.mephi.learnflow.exception.EnrollmentRequiredException;
 import ru.mephi.learnflow.exception.InvalidInputException;
 import ru.mephi.learnflow.exception.QuizAlreadyExistsException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
+
+import java.util.List;
 
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -48,13 +51,28 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException exception,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Проверьте поля запроса");
-        problem.setProperty("errors", exception.getBindingResult().getAllErrors().stream()
+        List<ValidationError> errors = exception.getBindingResult().getAllErrors().stream()
                 .map(error -> new ValidationError(
                         error instanceof FieldError field ? field.getField() : error.getObjectName(),
                         error.getDefaultMessage()))
-                .toList());
-        return handleExceptionInternal(exception, problem, headers, status, request);
+                .toList();
+        return handleExceptionInternal(exception, validationProblem(status, errors), headers, status, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHandlerMethodValidationException(HandlerMethodValidationException exception,
+            HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (exception.isForReturnValue()) {
+            return super.handleHandlerMethodValidationException(exception, headers, status, request);
+        }
+        List<ValidationError> errors = exception.getParameterValidationResults().stream()
+                .flatMap(parameter -> parameter.getResolvableErrors().stream()
+                        .map(error -> new ValidationError(
+                                error instanceof FieldError field ? field.getField()
+                                        : parameter.getMethodParameter().getParameterName(),
+                                error.getDefaultMessage())))
+                .toList();
+        return handleExceptionInternal(exception, validationProblem(status, errors), headers, status, request);
     }
 
     @Override
@@ -62,6 +80,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Ожидается корректное тело JSON");
         return handleExceptionInternal(exception, problem, headers, status, request);
+    }
+
+    private ProblemDetail validationProblem(HttpStatusCode status, List<ValidationError> errors) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Проверьте поля запроса");
+        problem.setProperty("errors", errors);
+        return problem;
     }
 
     private record ValidationError(String field, String message) {
