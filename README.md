@@ -13,7 +13,13 @@ docker compose up -d --wait postgres
 ./mvnw spring-boot:run
 ```
 
-Spring использует профиль `dev` по умолчанию. Hibernate создаёт или обновляет таблицы при старте. Сейчас точка входа инициализирует подключение к базе и завершает работу. Для остановки PostgreSQL используй `docker compose stop postgres`.
+Spring использует профиль `dev` по умолчанию. Hibernate создаёт или обновляет таблицы при старте. Чтобы получить список курсов, выполни в другом терминале:
+
+```sh
+curl http://localhost:8080/api/courses
+```
+
+Для остановки PostgreSQL используй `docker compose stop postgres`.
 
 ## Тесты
 
