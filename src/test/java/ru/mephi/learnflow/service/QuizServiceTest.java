@@ -78,7 +78,7 @@ class QuizServiceTest {
         teacherId = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER)).getId();
         Long categoryId = categories.save(new Category("Базы данных")).getId();
         courseId = courses.createCourse("ORM", null, categoryId, teacherId).id();
-        moduleId = content.addModule(courseId, "Основы").id();
+        moduleId = content.addModule(courseId, teacherId, "Основы").id();
         entities.clear();
     }
 
@@ -252,7 +252,7 @@ class QuizServiceTest {
         Long secondStudentId = users.save(new User("Иван", "ivan@example.org", UserRole.STUDENT)).getId();
         enrollments.enrollStudent(courseId, studentId);
         enrollments.enrollStudent(courseId, secondStudentId);
-        Long secondModuleId = content.addModule(courseId, "Запросы").id();
+        Long secondModuleId = content.addModule(courseId, teacherId, "Запросы").id();
         Long firstQuizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
         Long secondQuizId = service.createQuiz(secondModuleId, teacherId, "JPQL").id();
         QuizQuestionDetails relation = service.addQuestion(firstQuizId, teacherId, "Какая аннотация нужна?", List.of(
@@ -289,7 +289,7 @@ class QuizServiceTest {
         enrollments.enrollStudent(courseId, studentId);
         enrollments.enrollStudent(courseId, peerId);
         Long quizId = service.createQuiz(moduleId, teacherId, "Связи сущностей").id();
-        Long otherModuleId = content.addModule(courseId, "Запросы").id();
+        Long otherModuleId = content.addModule(courseId, teacherId, "Запросы").id();
         Long otherQuizId = service.createQuiz(otherModuleId, teacherId, "JPQL").id();
         QuizQuestionDetails question = service.addQuestion(quizId, teacherId, "Какая аннотация нужна?", List.of(
                 new QuizOptionDraft("@OneToMany", false), new QuizOptionDraft("@ManyToOne", true)));

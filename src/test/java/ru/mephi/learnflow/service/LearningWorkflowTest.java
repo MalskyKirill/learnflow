@@ -66,8 +66,8 @@ class LearningWorkflowTest {
 
         CourseDetails course = courses.createCourse("Hibernate", "Введение в ORM", categoryId, teacherId);
         courseId = course.id();
-        CourseModuleDetails module = content.addModule(courseId, "Основы JPA");
-        LessonDetails lesson = content.addLesson(module.id(), "Связи", "Внешние ключи и связи сущностей");
+        CourseModuleDetails module = content.addModule(courseId, teacherId, "Основы JPA");
+        LessonDetails lesson = content.addLesson(module.id(), teacherId, "Связи", "Внешние ключи и связи сущностей");
         assertThat(content.getProgram(courseId))
                 .isEqualTo(new CourseProgram(course, List.of(new CourseProgram.Module(module, List.of(lesson)))));
 
@@ -96,7 +96,7 @@ class LearningWorkflowTest {
         }
         if (courseId != null) {
             enrollments.unenrollStudent(courseId, studentId);
-            courses.deleteCourse(courseId);
+            courses.deleteCourse(courseId, teacherId);
         }
         if (studentId != null) {
             users.deleteById(studentId);

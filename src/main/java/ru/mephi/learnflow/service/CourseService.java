@@ -46,15 +46,18 @@ public class CourseService {
     }
 
     @Transactional
-    public CourseDetails updateCourse(Long courseId, String title, String description, Long categoryId, Long teacherId) {
-        Course course = requireCourse(courseId);
+    public CourseDetails updateCourse(Long courseId, Long actorId, String title, String description, Long categoryId,
+                                      Long teacherId) {
+        Course course = requireCourseForUpdate(courseId);
+        course.requireTeacher(actorId);
         course.updateDetails(title, description, requireCategory(categoryId), requireTeacher(teacherId));
         return CourseDetails.from(course);
     }
 
     @Transactional
-    public void deleteCourse(Long courseId) {
-        Course course = requireCourse(courseId);
+    public void deleteCourse(Long courseId, Long actorId) {
+        Course course = requireCourseForUpdate(courseId);
+        course.requireTeacher(actorId);
         if (courses.hasDependentData(courseId)) {
             throw new CourseInUseException(courseId);
         }
@@ -72,6 +75,11 @@ public class CourseService {
 
     private Course requireCourse(Long courseId) {
         return courses.findById(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Курс " + courseId + " не найден"));
+    }
+
+    private Course requireCourseForUpdate(Long courseId) {
+        return courses.findByIdForUpdate(courseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Курс " + courseId + " не найден"));
     }
 

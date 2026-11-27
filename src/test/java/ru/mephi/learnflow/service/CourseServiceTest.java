@@ -14,6 +14,7 @@ import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.exception.CourseInUseException;
+import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.CategoryRepository;
 import ru.mephi.learnflow.repository.CourseRepository;
@@ -65,7 +66,7 @@ class CourseServiceTest {
         User replacement = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER));
         Category newCategory = categories.save(new Category("Разработка"));
         CourseDetails updated = service.updateCourse(
-                created.id(), "Hibernate", "Связи JPA", newCategory.getId(), replacement.getId());
+                created.id(), teacher.getId(), "Hibernate", "Связи JPA", newCategory.getId(), replacement.getId());
         entities.flush();
         entities.clear();
 
@@ -74,7 +75,7 @@ class CourseServiceTest {
         assertThat(service.getCourse(created.id())).isEqualTo(updated);
         assertThat(service.listCourses()).contains(updated);
 
-        service.deleteCourse(created.id());
+        service.deleteCourse(created.id(), replacement.getId());
         assertThatThrownBy(() -> service.getCourse(created.id())).isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -93,7 +94,20 @@ class CourseServiceTest {
         User student = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT));
         enrollments.saveAndFlush(new Enrollment(student, course));
 
-        assertThatThrownBy(() -> service.deleteCourse(created.id())).isInstanceOf(CourseInUseException.class);
+        assertThatThrownBy(() -> service.deleteCourse(created.id(), teacher.getId()))
+                .isInstanceOf(CourseInUseException.class);
         assertThat(courses.existsById(created.id())).isTrue();
+    }
+
+    @Test
+    void rejectsCourseChangesByAnotherTeacher() {
+        CourseDetails course = service.createCourse("ORM", null, category.getId(), teacher.getId());
+        User outsider = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER));
+
+        assertThatThrownBy(() -> service.updateCourse(course.id(), outsider.getId(), "Hibernate", null,
+                category.getId(), outsider.getId())).isInstanceOf(CourseTeacherRequiredException.class);
+        assertThatThrownBy(() -> service.deleteCourse(course.id(), outsider.getId()))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThat(service.getCourse(course.id())).isEqualTo(course);
     }
 }

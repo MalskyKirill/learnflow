@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.util.ArrayList;
@@ -88,6 +89,12 @@ public class Course {
 
     public User getTeacher() {
         return teacher;
+    }
+
+    public void requireTeacher(Long actorId) {
+        if (actorId == null || !actorId.equals(teacher.getId())) {
+            throw new CourseTeacherRequiredException(id);
+        }
     }
 
     public List<CourseModule> getModules() {

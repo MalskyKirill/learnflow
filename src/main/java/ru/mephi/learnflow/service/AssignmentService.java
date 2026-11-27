@@ -4,9 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.dto.AssignmentDetails;
 import ru.mephi.learnflow.entity.Assignment;
-import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.Lesson;
-import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.AssignmentRepository;
 import ru.mephi.learnflow.repository.LessonRepository;
@@ -29,10 +27,7 @@ public class AssignmentService {
                                               Instant dueAt, int maxScore) {
         Lesson lesson = lessons.findWithCourseById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Урок " + lessonId + " не найден"));
-        Course course = lesson.getModule().getCourse();
-        if (!course.getTeacher().getId().equals(teacherId)) {
-            throw new CourseTeacherRequiredException(course.getId());
-        }
+        lesson.getModule().getCourse().requireTeacher(teacherId);
         Assignment assignment = lesson.addAssignment(title, description, dueAt, maxScore);
         return AssignmentDetails.from(assignments.save(assignment));
     }

@@ -13,6 +13,7 @@ import ru.mephi.learnflow.dto.LessonDetails;
 import ru.mephi.learnflow.entity.Category;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
+import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.CategoryRepository;
 import ru.mephi.learnflow.repository.UserRepository;
@@ -51,11 +52,11 @@ class CourseContentServiceTest {
         Long secondCourseId = courses.createCourse("SQL", null, category.getId(), teacher.getId()).id();
         assertThat(content.listModules(firstCourseId)).isEmpty();
 
-        CourseModuleDetails basics = content.addModule(firstCourseId, "Основы");
-        CourseModuleDetails queries = content.addModule(secondCourseId, "Запросы");
+        CourseModuleDetails basics = content.addModule(firstCourseId, teacher.getId(), "Основы");
+        CourseModuleDetails queries = content.addModule(secondCourseId, teacher.getId(), "Запросы");
         entities.flush();
         entities.clear();
-        CourseModuleDetails relations = content.addModule(firstCourseId, "Связи");
+        CourseModuleDetails relations = content.addModule(firstCourseId, teacher.getId(), "Связи");
         entities.flush();
         entities.clear();
 
@@ -72,12 +73,12 @@ class CourseContentServiceTest {
         User teacher = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER));
         CourseDetails course = courses.createCourse("ORM", null, category.getId(), teacher.getId());
         assertThat(content.getProgram(course.id()).modules()).isEmpty();
-        CourseModuleDetails basics = content.addModule(course.id(), "Основы");
-        CourseModuleDetails queries = content.addModule(course.id(), "Запросы");
-        CourseModuleDetails practice = content.addModule(course.id(), "Практика");
-        LessonDetails mapping = content.addLesson(basics.id(), "Сущности", "Разметка JPA");
-        LessonDetails relations = content.addLesson(basics.id(), "Связи", "Внешние ключи");
-        LessonDetails jpql = content.addLesson(queries.id(), "JPQL", null);
+        CourseModuleDetails basics = content.addModule(course.id(), teacher.getId(), "Основы");
+        CourseModuleDetails queries = content.addModule(course.id(), teacher.getId(), "Запросы");
+        CourseModuleDetails practice = content.addModule(course.id(), teacher.getId(), "Практика");
+        LessonDetails mapping = content.addLesson(basics.id(), teacher.getId(), "Сущности", "Разметка JPA");
+        LessonDetails relations = content.addLesson(basics.id(), teacher.getId(), "Связи", "Внешние ключи");
+        LessonDetails jpql = content.addLesson(queries.id(), teacher.getId(), "JPQL", null);
         entities.flush();
         entities.clear();
 
@@ -95,13 +96,13 @@ class CourseContentServiceTest {
 
     @Test
     void rejectsAddingLessonToUnknownModule() {
-        assertThatThrownBy(() -> content.addLesson(Long.MAX_VALUE, "Сущности", null))
+        assertThatThrownBy(() -> content.addLesson(Long.MAX_VALUE, 1L, "Сущности", null))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void rejectsAddingModuleToUnknownCourse() {
-        assertThatThrownBy(() -> content.addModule(Long.MAX_VALUE, "Основы"))
+        assertThatThrownBy(() -> content.addModule(Long.MAX_VALUE, 1L, "Основы"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -111,6 +112,24 @@ class CourseContentServiceTest {
         User teacher = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER));
         Long courseId = courses.createCourse("ORM", null, category.getId(), teacher.getId()).id();
 
-        assertThatIllegalArgumentException().isThrownBy(() -> content.addModule(courseId, " "));
+        assertThatIllegalArgumentException().isThrownBy(() -> content.addModule(courseId, teacher.getId(), " "));
+    }
+
+    @Test
+    void rejectsContentChangesByAnotherTeacherOrStudent() {
+        Category category = categories.save(new Category("Базы данных"));
+        User teacher = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER));
+        User outsider = users.save(new User("Ирина", "irina@example.org", UserRole.TEACHER));
+        User student = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT));
+        Long courseId = courses.createCourse("ORM", null, category.getId(), teacher.getId()).id();
+        CourseModuleDetails module = content.addModule(courseId, teacher.getId(), "Основы");
+        entities.clear();
+
+        assertThatThrownBy(() -> content.addModule(courseId, outsider.getId(), "Запросы"))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThatThrownBy(() -> content.addLesson(module.id(), student.getId(), "Сущности", null))
+                .isInstanceOf(CourseTeacherRequiredException.class);
+        assertThat(content.getProgram(courseId).modules())
+                .containsExactly(new CourseProgram.Module(module, List.of()));
     }
 }

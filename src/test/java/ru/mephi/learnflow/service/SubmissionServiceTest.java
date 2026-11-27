@@ -66,8 +66,8 @@ class SubmissionServiceTest {
         studentId = users.save(new User("Анна", "anna@example.org", UserRole.STUDENT)).getId();
         Long categoryId = categories.save(new Category("Базы данных")).getId();
         courseId = courses.createCourse("ORM", null, categoryId, teacherId).id();
-        Long moduleId = content.addModule(courseId, "Основы").id();
-        lessonId = content.addLesson(moduleId, "Связи", null).id();
+        Long moduleId = content.addModule(courseId, teacherId, "Основы").id();
+        lessonId = content.addLesson(moduleId, teacherId, "Связи", null).id();
         assignmentId = assignments.createAssignment(lessonId, teacherId, "JPA-связи", null, null, 20).id();
         entities.clear();
     }

@@ -58,8 +58,8 @@ class AssignmentServiceTest {
         teacherId = users.save(new User("Мария", "maria@example.org", UserRole.TEACHER)).getId();
         Category category = categories.save(new Category("Базы данных"));
         CourseDetails course = courses.createCourse("ORM", null, category.getId(), teacherId);
-        CourseModuleDetails module = content.addModule(course.id(), "Основы");
-        lessonId = content.addLesson(module.id(), "Связи", "Внешние ключи").id();
+        CourseModuleDetails module = content.addModule(course.id(), teacherId, "Основы");
+        lessonId = content.addLesson(module.id(), teacherId, "Связи", "Внешние ключи").id();
         entities.clear();
     }
 

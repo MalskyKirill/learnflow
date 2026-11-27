@@ -62,7 +62,7 @@ class QuizWorkflowTest {
         teacherId = users.save(new User("Мария", "quiz-workflow-teacher@example.org", UserRole.TEACHER)).getId();
         studentId = users.save(new User("Анна", "quiz-workflow-student@example.org", UserRole.STUDENT)).getId();
         courseId = courses.createCourse("Hibernate", null, categoryId, teacherId).id();
-        Long moduleId = content.addModule(courseId, "Основы ORM").id();
+        Long moduleId = content.addModule(courseId, teacherId, "Основы ORM").id();
         QuizDetails quiz = quizzes.createQuiz(moduleId, teacherId, "Связи и загрузка");
         quizId = quiz.id();
         quizzes.addQuestion(quizId, teacherId, "Какая аннотация описывает связь многие к одному?", List.of(
@@ -104,7 +104,7 @@ class QuizWorkflowTest {
         }
         if (courseId != null) {
             enrollments.unenrollStudent(courseId, studentId);
-            courses.deleteCourse(courseId);
+            courses.deleteCourse(courseId, teacherId);
         }
         if (studentId != null) {
             users.deleteById(studentId);

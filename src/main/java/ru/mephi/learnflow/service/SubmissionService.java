@@ -6,13 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.mephi.learnflow.dto.SubmissionDetails;
 import ru.mephi.learnflow.entity.Assignment;
-import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.Submission;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.exception.AlreadySubmittedException;
-import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.EnrollmentRequiredException;
 import ru.mephi.learnflow.exception.InvalidInputException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
@@ -91,9 +89,6 @@ public class SubmissionService {
     }
 
     private void requireCourseTeacher(Assignment assignment, Long teacherId) {
-        Course course = assignment.getLesson().getModule().getCourse();
-        if (!course.getTeacher().getId().equals(teacherId)) {
-            throw new CourseTeacherRequiredException(course.getId());
-        }
+        assignment.getLesson().getModule().getCourse().requireTeacher(teacherId);
     }
 }

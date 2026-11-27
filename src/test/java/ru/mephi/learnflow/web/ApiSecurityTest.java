@@ -17,11 +17,15 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
+import ru.mephi.learnflow.entity.Profile;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
+import ru.mephi.learnflow.repository.ProfileRepository;
 import ru.mephi.learnflow.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -45,6 +49,9 @@ class ApiSecurityTest {
 
     @Autowired
     private UserRepository users;
+
+    @Autowired
+    private ProfileRepository profiles;
 
     @Autowired
     private PasswordEncoder passwords;
@@ -105,6 +112,34 @@ class ApiSecurityTest {
         http.perform(post("/api/csrf").headers(credentials).cookie(cookie)
                         .header(token.get("headerName").asText(), token.get("token").asText()))
                 .andExpect(status().isMethodNotAllowed());
+    }
+
+    @Test
+    void returnsProfileForAuthenticatedUser() throws Exception {
+        User student = users.save(new User("Анна", EMAIL, UserRole.STUDENT, passwords.encode(PASSWORD)));
+        profiles.save(new Profile(student, "Изучаю JPA", "https://example.org/avatar.png"));
+
+        http.perform(get("/api/me").headers(basic(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(is(student.getId()), Long.class))
+                .andExpect(jsonPath("$.name").value("Анна"))
+                .andExpect(jsonPath("$.email").value(EMAIL))
+                .andExpect(jsonPath("$.role").value("STUDENT"))
+                .andExpect(jsonPath("$.bio").value("Изучаю JPA"))
+                .andExpect(jsonPath("$.avatarUrl").value("https://example.org/avatar.png"))
+                .andExpect(jsonPath("$.passwordHash").doesNotHaveJsonPath());
+    }
+
+    @Test
+    void profileRequiresAuthenticationAndSupportsMissingOptionalDetails() throws Exception {
+        users.save(new User("Мария", EMAIL, UserRole.TEACHER, passwords.encode(PASSWORD)));
+
+        http.perform(get("/api/me")).andExpect(status().isUnauthorized());
+        http.perform(get("/api/me").headers(basic(EMAIL, PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("TEACHER"))
+                .andExpect(jsonPath("$.bio").value(nullValue()))
+                .andExpect(jsonPath("$.avatarUrl").value(nullValue()));
     }
 
     private static HttpHeaders basic(String email, String password) {

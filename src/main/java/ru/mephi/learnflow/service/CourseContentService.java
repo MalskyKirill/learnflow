@@ -30,9 +30,10 @@ public class CourseContentService {
     }
 
     @Transactional
-    public CourseModuleDetails addModule(Long courseId, String title) {
+    public CourseModuleDetails addModule(Long courseId, Long actorId, String title) {
         Course course = courses.findByIdForUpdate(courseId)
                 .orElseThrow(() -> courseNotFound(courseId));
+        course.requireTeacher(actorId);
         return CourseModuleDetails.from(modules.save(course.addModule(title)));
     }
 
@@ -46,9 +47,10 @@ public class CourseContentService {
     }
 
     @Transactional
-    public LessonDetails addLesson(Long moduleId, String title, String content) {
+    public LessonDetails addLesson(Long moduleId, Long actorId, String title, String content) {
         CourseModule module = modules.findByIdForUpdate(moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Модуль " + moduleId + " не найден"));
+        module.getCourse().requireTeacher(actorId);
         return LessonDetails.from(lessons.save(module.addLesson(title, content)));
     }
 

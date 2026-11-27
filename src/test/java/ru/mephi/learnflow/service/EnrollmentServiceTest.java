@@ -80,7 +80,7 @@ class EnrollmentServiceTest {
                     .containsExactly(EnrollmentStatus.ACTIVE);
         } finally {
             enrollments.deleteAll(enrollments.findAllByCourse_Id(courseId));
-            courses.deleteCourse(courseId);
+            courses.deleteCourse(courseId, teacher.getId());
             users.deleteById(student.getId());
             users.deleteById(teacher.getId());
             categories.deleteById(category.getId());

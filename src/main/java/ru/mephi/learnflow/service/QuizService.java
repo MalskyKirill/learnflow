@@ -7,7 +7,6 @@ import ru.mephi.learnflow.dto.QuizDetails;
 import ru.mephi.learnflow.dto.QuizOptionDraft;
 import ru.mephi.learnflow.dto.QuizQuestionDetails;
 import ru.mephi.learnflow.dto.QuizView;
-import ru.mephi.learnflow.entity.Course;
 import ru.mephi.learnflow.entity.CourseModule;
 import ru.mephi.learnflow.entity.Enrollment;
 import ru.mephi.learnflow.entity.Question;
@@ -15,7 +14,6 @@ import ru.mephi.learnflow.entity.Quiz;
 import ru.mephi.learnflow.entity.QuizSubmission;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
-import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.EnrollmentRequiredException;
 import ru.mephi.learnflow.exception.InvalidInputException;
 import ru.mephi.learnflow.exception.QuizAlreadyExistsException;
@@ -51,7 +49,7 @@ public class QuizService {
     public QuizDetails createQuiz(Long moduleId, Long teacherId, String title) {
         CourseModule module = modules.findByIdForUpdate(moduleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Модуль " + moduleId + " не найден"));
-        requireCourseTeacher(module.getCourse(), teacherId);
+        module.getCourse().requireTeacher(teacherId);
         if (quizzes.existsByModule_Id(moduleId)) {
             throw new QuizAlreadyExistsException(moduleId);
         }
@@ -61,7 +59,7 @@ public class QuizService {
     @Transactional
     public QuizQuestionDetails addQuestion(Long quizId, Long teacherId, String text, List<QuizOptionDraft> options) {
         Quiz quiz = requireQuiz(quizId);
-        requireCourseTeacher(quiz.getModule().getCourse(), teacherId);
+        quiz.getModule().getCourse().requireTeacher(teacherId);
         if (text == null || text.isBlank()) {
             throw new InvalidInputException("Текст вопроса не должен быть пустым");
         }
@@ -118,7 +116,7 @@ public class QuizService {
     @Transactional(readOnly = true)
     public List<QuizAttemptDetails> listQuizAttempts(Long quizId, Long teacherId) {
         Quiz quiz = requireQuiz(quizId);
-        requireCourseTeacher(quiz.getModule().getCourse(), teacherId);
+        quiz.getModule().getCourse().requireTeacher(teacherId);
         return attempts.findAllByQuiz_IdOrderByTakenAtDescIdDesc(quizId).stream()
                 .map(QuizAttemptDetails::from)
                 .toList();
@@ -134,11 +132,5 @@ public class QuizService {
 
     private ResourceNotFoundException quizNotFound(Long quizId) {
         return new ResourceNotFoundException("Викторина " + quizId + " не найдена");
-    }
-
-    private void requireCourseTeacher(Course course, Long teacherId) {
-        if (!course.getTeacher().getId().equals(teacherId)) {
-            throw new CourseTeacherRequiredException(course.getId());
-        }
     }
 }
