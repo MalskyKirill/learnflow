@@ -58,10 +58,17 @@ public class SubmissionService {
 
     @Transactional
     public SubmissionDetails gradeSubmission(Long submissionId, Long teacherId, int score, String feedback) {
-        Submission submission = submissions.findWithCourseById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Решение " + submissionId + " не найдено"));
+        Submission submission = requireSubmission(submissionId);
         requireCourseTeacher(submission.getAssignment(), teacherId);
         submission.grade(score, feedback);
+        return SubmissionDetails.from(submission);
+    }
+
+    public SubmissionDetails getSubmission(Long submissionId, Long actorId) {
+        Submission submission = requireSubmission(submissionId);
+        if (!submission.getStudent().getId().equals(actorId)) {
+            requireCourseTeacher(submission.getAssignment(), actorId);
+        }
         return SubmissionDetails.from(submission);
     }
 
@@ -86,6 +93,11 @@ public class SubmissionService {
     private Assignment requireAssignment(Long assignmentId) {
         return assignments.findWithLessonAndModuleById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Задание " + assignmentId + " не найдено"));
+    }
+
+    private Submission requireSubmission(Long submissionId) {
+        return submissions.findWithCourseById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Решение " + submissionId + " не найдено"));
     }
 
     private void requireCourseTeacher(Assignment assignment, Long teacherId) {
