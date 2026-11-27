@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.Check;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.time.Instant;
 
@@ -44,10 +45,10 @@ public class CourseReview {
 
     CourseReview(Course course, User student, int rating, String comment) {
         if (student == null || student.getRole() != UserRole.STUDENT) {
-            throw new IllegalArgumentException("Оставить отзыв может только студент");
+            throw new InvalidInputException("Оставить отзыв может только студент");
         }
         if (rating < 1 || rating > 5) {
-            throw new IllegalArgumentException("Оценка должна быть от 1 до 5");
+            throw new InvalidInputException("Оценка должна быть от 1 до 5");
         }
         this.course = course;
         this.student = student;

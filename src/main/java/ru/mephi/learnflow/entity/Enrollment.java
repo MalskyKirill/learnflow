@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -47,7 +48,7 @@ public class Enrollment {
 
     public Enrollment(User student, Course course) {
         if (student == null || student.getRole() != UserRole.STUDENT) {
-            throw new IllegalArgumentException("Записаться на курс может только студент");
+            throw new InvalidInputException("Записаться на курс может только студент");
         }
         this.student = student;
         this.course = course;

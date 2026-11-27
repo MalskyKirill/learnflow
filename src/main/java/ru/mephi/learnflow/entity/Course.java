@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,13 +56,13 @@ public class Course {
 
     public void updateDetails(String title, String description, Category category, User teacher) {
         if (title == null || title.isBlank() || title.length() > 255) {
-            throw new IllegalArgumentException("Название курса должно содержать от 1 до 255 символов");
+            throw new InvalidInputException("Название курса должно содержать от 1 до 255 символов");
         }
         if (category == null) {
-            throw new IllegalArgumentException("Укажите категорию курса");
+            throw new InvalidInputException("Укажите категорию курса");
         }
         if (teacher == null || teacher.getRole() != UserRole.TEACHER) {
-            throw new IllegalArgumentException("Вести курс может только преподаватель");
+            throw new InvalidInputException("Вести курс может только преподаватель");
         }
         this.title = title;
         this.description = description;

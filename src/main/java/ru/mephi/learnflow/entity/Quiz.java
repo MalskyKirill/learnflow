@@ -12,6 +12,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,7 +44,7 @@ public class Quiz {
 
     public Quiz(CourseModule module, String title) {
         if (title == null || title.isBlank() || title.length() > 255) {
-            throw new IllegalArgumentException("Название викторины должно содержать от 1 до 255 символов");
+            throw new InvalidInputException("Название викторины должно содержать от 1 до 255 символов");
         }
         this.module = module;
         this.title = title;
@@ -73,7 +74,7 @@ public class Quiz {
 
     public List<AnswerOption> resolveSelectedOptions(Map<Long, Long> answers) {
         if (answers == null) {
-            throw new IllegalArgumentException("Передайте ответы на вопросы викторины");
+            throw new InvalidInputException("Передайте ответы на вопросы викторины");
         }
         Map<Long, Long> remaining = new LinkedHashMap<>(answers);
         List<AnswerOption> selected = new ArrayList<>(answers.size());
@@ -84,7 +85,7 @@ public class Quiz {
             }
             Long optionId = remaining.remove(questionId);
             if (optionId == null) {
-                throw new IllegalArgumentException("Укажите вариант ответа для вопроса " + questionId);
+                throw new InvalidInputException("Укажите вариант ответа для вопроса " + questionId);
             }
             AnswerOption option = question.getOptions().stream()
                     .filter(candidate -> optionId.equals(candidate.getId()))
@@ -94,7 +95,7 @@ public class Quiz {
             selected.add(option);
         }
         if (!remaining.isEmpty()) {
-            throw new IllegalArgumentException(
+            throw new InvalidInputException(
                     "Вопрос " + remaining.keySet().iterator().next() + " не относится к викторине");
         }
         return List.copyOf(selected);

@@ -14,6 +14,7 @@ import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.exception.AlreadySubmittedException;
 import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.EnrollmentRequiredException;
+import ru.mephi.learnflow.exception.InvalidInputException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.AssignmentRepository;
 import ru.mephi.learnflow.repository.EnrollmentRepository;
@@ -77,7 +78,7 @@ public class SubmissionService {
         User student = users.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Пользователь " + studentId + " не найден"));
         if (student.getRole() != UserRole.STUDENT) {
-            throw new IllegalArgumentException("Просматривать свои решения может только студент");
+            throw new InvalidInputException("Просматривать свои решения может только студент");
         }
         return submissions.findAllByStudent_IdOrderBySubmittedAtDescIdDesc(studentId).stream()
                 .map(SubmissionDetails::from)

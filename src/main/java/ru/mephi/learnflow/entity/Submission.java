@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -49,10 +50,10 @@ public class Submission {
 
     Submission(Assignment assignment, User student, String content) {
         if (student == null || student.getRole() != UserRole.STUDENT) {
-            throw new IllegalArgumentException("Отправить решение может только студент");
+            throw new InvalidInputException("Отправить решение может только студент");
         }
         if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("Решение не должно быть пустым");
+            throw new InvalidInputException("Решение не должно быть пустым");
         }
         this.assignment = assignment;
         this.student = student;
@@ -91,7 +92,7 @@ public class Submission {
     public void grade(int score, String feedback) {
         int maxScore = assignment.getMaxScore();
         if (score < 0 || score > maxScore) {
-            throw new IllegalArgumentException("Балл за решение должен быть от 0 до " + maxScore);
+            throw new InvalidInputException("Балл за решение должен быть от 0 до " + maxScore);
         }
         this.score = score;
         this.feedback = feedback;

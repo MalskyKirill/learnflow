@@ -13,6 +13,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.Check;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -52,10 +53,10 @@ public class QuizSubmission {
 
     public QuizSubmission(Quiz quiz, User student, int score) {
         if (student == null || student.getRole() != UserRole.STUDENT) {
-            throw new IllegalArgumentException("Пройти тест может только студент");
+            throw new InvalidInputException("Пройти тест может только студент");
         }
         if (score < 0) {
-            throw new IllegalArgumentException("Балл за тест должен быть неотрицательным");
+            throw new InvalidInputException("Балл за тест должен быть неотрицательным");
         }
         this.quiz = quiz;
         this.student = student;
@@ -91,7 +92,7 @@ public class QuizSubmission {
         Quiz questionQuiz = option.getQuestion().getQuiz();
         Long quizId = quiz.getId();
         if (questionQuiz != quiz && (quizId == null || !quizId.equals(questionQuiz.getId()))) {
-            throw new IllegalArgumentException("Вариант ответа относится к другому тесту");
+            throw new InvalidInputException("Вариант ответа относится к другому тесту");
         }
         answers.add(new StudentAnswer(this, option));
     }

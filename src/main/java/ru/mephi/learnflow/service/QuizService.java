@@ -17,6 +17,7 @@ import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
 import ru.mephi.learnflow.exception.EnrollmentRequiredException;
+import ru.mephi.learnflow.exception.InvalidInputException;
 import ru.mephi.learnflow.exception.QuizAlreadyExistsException;
 import ru.mephi.learnflow.exception.ResourceNotFoundException;
 import ru.mephi.learnflow.repository.CourseModuleRepository;
@@ -62,16 +63,16 @@ public class QuizService {
         Quiz quiz = requireQuiz(quizId);
         requireCourseTeacher(quiz.getModule().getCourse(), teacherId);
         if (text == null || text.isBlank()) {
-            throw new IllegalArgumentException("Текст вопроса не должен быть пустым");
+            throw new InvalidInputException("Текст вопроса не должен быть пустым");
         }
         if (options == null || options.size() < 2) {
-            throw new IllegalArgumentException("У вопроса должно быть не менее двух вариантов ответа");
+            throw new InvalidInputException("У вопроса должно быть не менее двух вариантов ответа");
         }
         if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
-            throw new IllegalArgumentException("Текст варианта ответа не должен быть пустым");
+            throw new InvalidInputException("Текст варианта ответа не должен быть пустым");
         }
         if (options.stream().filter(QuizOptionDraft::correct).count() != 1) {
-            throw new IllegalArgumentException("У вопроса должен быть ровно один правильный вариант");
+            throw new InvalidInputException("У вопроса должен быть ровно один правильный вариант");
         }
 
         Question question = quiz.addQuestion(text);
@@ -107,7 +108,7 @@ public class QuizService {
         User student = users.findById(studentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Пользователь " + studentId + " не найден"));
         if (student.getRole() != UserRole.STUDENT) {
-            throw new IllegalArgumentException("Просматривать историю своих попыток может только студент");
+            throw new InvalidInputException("Просматривать историю своих попыток может только студент");
         }
         return attempts.findAllByStudent_IdOrderByTakenAtDescIdDesc(studentId).stream()
                 .map(QuizAttemptDetails::from)

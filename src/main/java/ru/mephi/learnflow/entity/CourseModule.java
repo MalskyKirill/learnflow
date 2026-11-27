@@ -13,6 +13,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,7 +46,7 @@ public class CourseModule {
 
     CourseModule(Course course, String title, int position) {
         if (title == null || title.isBlank() || title.length() > 255) {
-            throw new IllegalArgumentException("Название модуля должно содержать от 1 до 255 символов");
+            throw new InvalidInputException("Название модуля должно содержать от 1 до 255 символов");
         }
         this.course = course;
         this.title = title;

@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ public class Lesson {
 
     Lesson(CourseModule module, String title, String content, int position) {
         if (title == null || title.isBlank() || title.length() > 255) {
-            throw new IllegalArgumentException("Название урока должно содержать от 1 до 255 символов");
+            throw new InvalidInputException("Название урока должно содержать от 1 до 255 символов");
         }
         this.module = module;
         this.title = title;
