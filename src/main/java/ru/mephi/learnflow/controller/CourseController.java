@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;

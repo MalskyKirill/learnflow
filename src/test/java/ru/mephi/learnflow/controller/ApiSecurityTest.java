@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static ru.mephi.learnflow.controller.ApiTestRequests.basic;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -142,9 +143,4 @@ class ApiSecurityTest {
                 .andExpect(jsonPath("$.avatarUrl").value(nullValue()));
     }
 
-    private static HttpHeaders basic(String email, String password) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBasicAuth(email, password);
-        return headers;
-    }
 }

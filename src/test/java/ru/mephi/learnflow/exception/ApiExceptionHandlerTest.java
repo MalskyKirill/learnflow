@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.exception;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -19,14 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import ru.mephi.learnflow.exception.AlreadyEnrolledException;
-import ru.mephi.learnflow.exception.AlreadySubmittedException;
-import ru.mephi.learnflow.exception.CourseInUseException;
-import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
-import ru.mephi.learnflow.exception.EnrollmentRequiredException;
-import ru.mephi.learnflow.exception.InvalidInputException;
-import ru.mephi.learnflow.exception.QuizAlreadyExistsException;
-import ru.mephi.learnflow.exception.ResourceNotFoundException;
+import ru.mephi.learnflow.controller.CourseController;
 import ru.mephi.learnflow.service.CourseService;
 
 import java.util.stream.Stream;

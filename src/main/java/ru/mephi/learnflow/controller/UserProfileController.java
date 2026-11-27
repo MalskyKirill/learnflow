@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.controller;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;

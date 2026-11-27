@@ -1,9 +1,7 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
-import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -183,19 +181,6 @@ class CourseControllerTest {
     }
 
     private RequestPostProcessor authenticatedWrite(User user) throws Exception {
-        HttpHeaders credentials = new HttpHeaders();
-        credentials.setBasicAuth(user.getEmail(), PASSWORD);
-        MvcResult result = http.perform(get("/api/csrf").headers(credentials))
-                .andExpect(status().isOk())
-                .andReturn();
-        Cookie cookie = result.getResponse().getCookie("XSRF-TOKEN");
-        assertThat(cookie).isNotNull();
-        JsonNode token = json.readTree(result.getResponse().getContentAsString());
-        return request -> {
-            request.setCookies(cookie);
-            request.addHeader(HttpHeaders.AUTHORIZATION, credentials.getFirst(HttpHeaders.AUTHORIZATION));
-            request.addHeader(token.get("headerName").asText(), token.get("token").asText());
-            return request;
-        };
+        return ApiTestRequests.authenticatedWrite(http, json, user.getEmail(), PASSWORD);
     }
 }

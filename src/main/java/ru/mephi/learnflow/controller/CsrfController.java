@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.controller;
 
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;

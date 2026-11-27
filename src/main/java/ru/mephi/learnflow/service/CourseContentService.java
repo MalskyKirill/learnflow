@@ -46,12 +46,22 @@ public class CourseContentService {
                 .toList();
     }
 
+    public CourseModuleDetails getModule(Long moduleId) {
+        return modules.findById(moduleId).map(CourseModuleDetails::from)
+                .orElseThrow(() -> moduleNotFound(moduleId));
+    }
+
     @Transactional
     public LessonDetails addLesson(Long moduleId, Long actorId, String title, String content) {
         CourseModule module = modules.findByIdForUpdate(moduleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Модуль " + moduleId + " не найден"));
+                .orElseThrow(() -> moduleNotFound(moduleId));
         module.getCourse().requireTeacher(actorId);
         return LessonDetails.from(lessons.save(module.addLesson(title, content)));
+    }
+
+    public LessonDetails getLesson(Long lessonId) {
+        return lessons.findById(lessonId).map(LessonDetails::from)
+                .orElseThrow(() -> new ResourceNotFoundException("Урок " + lessonId + " не найден"));
     }
 
     public CourseProgram getProgram(Long courseId) {
@@ -65,5 +75,9 @@ public class CourseContentService {
 
     private ResourceNotFoundException courseNotFound(Long courseId) {
         return new ResourceNotFoundException("Курс " + courseId + " не найден");
+    }
+
+    private ResourceNotFoundException moduleNotFound(Long moduleId) {
+        return new ResourceNotFoundException("Модуль " + moduleId + " не найден");
     }
 }

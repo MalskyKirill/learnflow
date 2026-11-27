@@ -1,4 +1,4 @@
-package ru.mephi.learnflow.web;
+package ru.mephi.learnflow.exception;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -13,14 +13,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import ru.mephi.learnflow.exception.AlreadyEnrolledException;
-import ru.mephi.learnflow.exception.AlreadySubmittedException;
-import ru.mephi.learnflow.exception.CourseInUseException;
-import ru.mephi.learnflow.exception.CourseTeacherRequiredException;
-import ru.mephi.learnflow.exception.EnrollmentRequiredException;
-import ru.mephi.learnflow.exception.InvalidInputException;
-import ru.mephi.learnflow.exception.QuizAlreadyExistsException;
-import ru.mephi.learnflow.exception.ResourceNotFoundException;
 
 import java.util.List;
 
