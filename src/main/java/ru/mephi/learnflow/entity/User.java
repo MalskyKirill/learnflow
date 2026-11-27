@@ -33,6 +33,9 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
 
+    @Column(name = "password_hash")
+    private String passwordHash;
+
     @OneToMany(mappedBy = "student", fetch = FetchType.LAZY)
     private List<CourseReview> reviews = new ArrayList<>();
 
@@ -40,9 +43,14 @@ public class User {
     }
 
     public User(String name, String email, UserRole role) {
+        this(name, email, role, null);
+    }
+
+    public User(String name, String email, UserRole role, String passwordHash) {
         this.name = name;
         this.email = email;
         this.role = role;
+        this.passwordHash = passwordHash;
     }
 
     public Long getId() {
@@ -59,6 +67,10 @@ public class User {
 
     public UserRole getRole() {
         return role;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public List<CourseReview> getReviews() {
