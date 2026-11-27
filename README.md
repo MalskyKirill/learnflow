@@ -21,6 +21,99 @@ curl http://localhost:8080/api/courses
 
 Для остановки PostgreSQL используй `docker compose stop postgres`.
 
+## REST API
+
+Список и карточки курсов доступны без входа. Для остальных маршрутов используй HTTP Basic с email и паролем учётной записи LearnFlow. Для `POST`, `PUT` и `DELETE` также передавай cookie и CSRF-заголовок из `GET /api/csrf`.
+
+| Раздел | Маршруты |
+|---|---|
+| Профиль | `GET /api/me`, `GET /api/csrf` |
+| Курсы | `GET/POST /api/courses`, `GET/PUT/DELETE /api/courses/{courseId}` |
+| Программа | `GET /api/courses/{courseId}/program`, `GET/POST /api/courses/{courseId}/modules`, `GET /api/modules/{moduleId}`, `POST /api/modules/{moduleId}/lessons`, `GET /api/lessons/{lessonId}` |
+| Запись на курс | `GET/POST/DELETE /api/courses/{courseId}/enrollment`, `GET /api/me/courses`, `GET /api/courses/{courseId}/students` |
+| Задания и решения | `GET/POST /api/lessons/{lessonId}/assignments`, `GET /api/assignments/{assignmentId}`, `GET/POST /api/assignments/{assignmentId}/submissions`, `GET /api/submissions/{submissionId}`, `PUT /api/submissions/{submissionId}/grade`, `GET /api/me/submissions` |
+| Викторины | `GET/POST /api/modules/{moduleId}/quiz`, `GET /api/quizzes/{quizId}`, `POST /api/quizzes/{quizId}/questions`, `GET /api/quizzes/{quizId}/questions/{questionId}` |
+| Попытки | `GET/POST /api/quizzes/{quizId}/attempts`, `GET /api/quiz-attempts/{attemptId}`, `GET /api/me/quiz-attempts` |
+
+При создании ресурса API возвращает `201 Created` и заголовок `Location`. Ошибки приходят в формате `application/problem+json`. При ошибках валидации тело ответа включает список полей с сообщениями.
+
+### Подготовка примеров
+
+Понадобятся `curl` и `jq`. Укажи email существующих учётных записей преподавателя и студента с настроенными паролями и ID категории курса. `curl` запрашивает пароль при каждом защищённом запросе.
+
+```sh
+API=http://localhost:8080/api
+TEACHER=teacher@example.org
+STUDENT=student@example.org
+CATEGORY_ID=1
+
+teacher_cookie=$(mktemp)
+student_cookie=$(mktemp)
+
+csrf_header() {
+  curl -fsS --user "$1" --cookie-jar "$2" "$API/csrf" |
+    jq -er '"\(.headerName): \(.token)"'
+}
+
+teacher_csrf=$(csrf_header "$TEACHER" "$teacher_cookie")
+student_csrf=$(csrf_header "$STUDENT" "$student_cookie")
+
+teacher_write() {
+  curl -fsS --user "$TEACHER" --cookie "$teacher_cookie" \
+    --header "$teacher_csrf" --header 'Content-Type: application/json' "$@"
+}
+
+student_write() {
+  curl -fsS --user "$STUDENT" --cookie "$student_cookie" \
+    --header "$student_csrf" --header 'Content-Type: application/json' "$@"
+}
+```
+
+### Задание и оценка
+
+Преподаватель создаёт курс, модуль, урок и задание. Студент записывается на курс, отправляет решение и читает выставленную оценку.
+
+```sh
+course_body=$(jq -nc --argjson categoryId "$CATEGORY_ID" \
+  '{title:"Hibernate", categoryId:$categoryId}')
+course_id=$(teacher_write "$API/courses" --data "$course_body" | jq -er .id)
+module_id=$(teacher_write "$API/courses/$course_id/modules" \
+  --data '{"title":"Основы JPA"}' | jq -er .id)
+lesson_id=$(teacher_write "$API/modules/$module_id/lessons" \
+  --data '{"title":"Связи сущностей"}' | jq -er .id)
+assignment_id=$(teacher_write "$API/lessons/$lesson_id/assignments" \
+  --data '{"title":"Опиши связь урока с модулем","maxScore":20}' | jq -er .id)
+
+student_write --request POST "$API/courses/$course_id/enrollment"
+submission_id=$(student_write "$API/assignments/$assignment_id/submissions" \
+  --data '{"content":"Урок ссылается на модуль через ManyToOne"}' | jq -er .id)
+teacher_write --request PUT "$API/submissions/$submission_id/grade" \
+  --data '{"score":19,"feedback":"Добавь пример внешнего ключа"}'
+curl -fsS --user "$STUDENT" "$API/me/submissions"
+```
+
+### Викторина и результаты
+
+Преподаватель добавляет викторину к созданному модулю. Студент получает вопросы и отправляет выбранные варианты. В поле `answers` ключом служит ID вопроса, значением — ID варианта ответа.
+
+```sh
+quiz_id=$(teacher_write "$API/modules/$module_id/quiz" \
+  --data '{"title":"Связи сущностей"}' | jq -er .id)
+teacher_write "$API/quizzes/$quiz_id/questions" \
+  --data '{"text":"Какая аннотация нужна для связи многие к одному?",
+           "options":[{"text":"@OneToMany","correct":false},
+                      {"text":"@ManyToOne","correct":true}]}'
+
+quiz=$(curl -fsS --user "$STUDENT" "$API/modules/$module_id/quiz")
+question_id=$(printf '%s' "$quiz" | jq -er '.questions[0].id')
+option_id=$(printf '%s' "$quiz" | jq -er '.questions[0].options[1].id')
+attempt_body=$(jq -nc --arg questionId "$question_id" --argjson optionId "$option_id" \
+  '{answers:{($questionId):$optionId}}')
+student_write "$API/quizzes/$quiz_id/attempts" --data "$attempt_body"
+curl -fsS --user "$STUDENT" "$API/me/quiz-attempts"
+curl -fsS --user "$TEACHER" "$API/quizzes/$quiz_id/attempts"
+```
+
 ## Тесты
 
 ```sh
@@ -28,3 +121,5 @@ curl http://localhost:8080/api/courses
 ```
 
 Интеграционные тесты используют профиль `test` и запускают отдельный PostgreSQL 16 через Testcontainers. Для проверки достаточно запущенного Docker. В Windows вместо `./mvnw` используй `mvnw.cmd`.
+
+`./mvnw -Dtest=RestApiWorkflowTest test` запускает оба сценария через HTTP на случайном порту. Тест сам создаёт учётные записи и категорию в отдельной тестовой базе.
