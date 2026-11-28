@@ -21,6 +21,17 @@ curl http://localhost:8080/api/courses
 
 Для остановки PostgreSQL используй `docker compose stop postgres`.
 
+### Запуск приложения и базы в Docker
+
+Для этого варианта достаточно Docker с Docker Compose. Задай `POSTGRES_PASSWORD` в `.env`. Команда соберёт образ приложения и дождётся готовности PostgreSQL и API.
+
+```sh
+docker compose up -d --build --wait
+curl -fsS http://localhost:8080/api/courses
+```
+
+При занятом порте 8080 задай `APP_PORT` в `.env` и используй этот порт в запросах. Для остановки выполни `docker compose down`. Данные PostgreSQL сохраняются в томе `postgres_data`.
+
 ### Демо-курс
 
 Для первого запуска демо задай `DEMO_TEACHER_PASSWORD` и `DEMO_STUDENT_PASSWORD` в файле `.env` и запусти приложение с профилями `dev,demo`.
@@ -28,6 +39,8 @@ curl http://localhost:8080/api/courses
 ```sh
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,demo
 ```
+
+Для запуска демо через Docker используй `SPRING_PROFILES_ACTIVE=dev,demo docker compose up -d --build --wait`.
 
 Профиль создаёт категорию «ORM и Hibernate», учётные записи `teacher@demo.learnflow.example` и `student@demo.learnflow.example` и курс «Практика ORM с Hibernate» с уроком, заданием и викториной. Студент уже записан на курс. Повторный запуск сохраняет прогресс и пароли.
 
