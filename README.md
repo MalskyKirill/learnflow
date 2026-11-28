@@ -186,3 +186,14 @@ rm -f "$teacher_cookie" "$student_cookie"
 | Повторный запуск демо с сохранением прогресса | `./mvnw -Dtest=DemoDataInitializerTest test` |
 
 [GitHub Actions](.github/workflows/ci.yml) запускает полный набор тестов и собирает Docker-образ для пушей и пул-реквестов в `main`. Текстовые отчёты Surefire находятся в `target/surefire-reports` и доступны в артефакте `surefire-reports` после выполнения workflow.
+
+### Результат финальной проверки
+
+В чистой локальной копии репозитория команда `./mvnw --batch-mode --no-transfer-progress clean verify` завершилась успешно.
+
+```text
+Tests run: 143, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```
+
+При запуске через Docker Compose Hibernate создал 15 таблиц в пустой базе PostgreSQL. По примерам REST API преподаватель создал курс, задание и викторину, а студент записался на курс и получил 19 из 20 за задание и 1 из 1 за викторину. После пересоздания контейнеров с тем же томом сохранились демо-курс, оценка и результат викторины.
