@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
+import ru.mephi.learnflow.dto.SubmissionDetails;
 import ru.mephi.learnflow.dto.request.CreateSubmissionRequest;
 import ru.mephi.learnflow.dto.request.GradeSubmissionRequest;
 import ru.mephi.learnflow.entity.Category;
@@ -180,6 +181,23 @@ class SubmissionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(new GradeSubmissionRequest(21, null))))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void rejectsFractionalGradeAndPreservesExistingGrade() throws Exception {
+        enrollments.enrollStudent(courseId, student.getId());
+        Long submissionId = submissions.submitAssignment(assignmentId, student.getId(), "Решение").id();
+        SubmissionDetails graded = submissions.gradeSubmission(submissionId, teacher.getId(), 18, "Добавь пример");
+
+        http.perform(put(SUBMISSION_GRADE, submissionId).with(authenticatedWrite(teacher))
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"score":19.5,"feedback":"Новый комментарий"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("score"))
+                .andExpect(jsonPath("$.errors[0].message").value("Укажите целое число"));
+
+        assertThat(submissions.getSubmission(submissionId, student.getId())).isEqualTo(graded);
     }
 
     private User createAccount(String name, String email, UserRole role) {

@@ -1,5 +1,6 @@
 package ru.mephi.learnflow.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -70,6 +71,15 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException exception,
             HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        if (exception.getCause() instanceof InvalidFormatException invalidFormat
+                && (invalidFormat.getTargetType() == Integer.class || invalidFormat.getTargetType() == Long.class)
+                && !invalidFormat.getPath().isEmpty()) {
+            String field = invalidFormat.getPath().getFirst().getFieldName();
+            if (field != null) {
+                List<ValidationError> errors = List.of(new ValidationError(field, "Укажите целое число"));
+                return handleExceptionInternal(exception, validationProblem(status, errors), headers, status, request);
+            }
+        }
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, "Ожидается корректное тело JSON");
         return handleExceptionInternal(exception, problem, headers, status, request);
     }

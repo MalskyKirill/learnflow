@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
+import ru.mephi.learnflow.dto.AssignmentDetails;
 import ru.mephi.learnflow.dto.request.CreateAssignmentRequest;
 import ru.mephi.learnflow.dto.request.UpdateAssignmentRequest;
 import ru.mephi.learnflow.entity.Category;
@@ -38,6 +39,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static ru.mephi.learnflow.controller.ApiTestRequests.basic;
@@ -158,6 +160,28 @@ class AssignmentControllerTest {
         http.perform(get(LESSON_ASSIGNMENTS, Long.MAX_VALUE).headers(basic(teacher.getEmail(), PASSWORD)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void rejectsFractionalMaximumWhenCreatingOrUpdatingAssignment() throws Exception {
+        AssignmentDetails assignment = assignments.createAssignment(lessonId, teacher.getId(), "Связи", null, null, 20);
+        RequestPostProcessor writer = authenticatedWrite(teacher);
+        String request = """
+                {"title":"Практика JPA","maxScore":7.5}
+                """;
+
+        http.perform(post(LESSON_ASSIGNMENTS, lessonId).with(writer)
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.errors[0].field").value("maxScore"))
+                .andExpect(jsonPath("$.errors[0].message").value("Укажите целое число"));
+        http.perform(put(ASSIGNMENT, assignment.id()).with(writer)
+                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("maxScore"));
+
+        assertThat(assignments.listAssignments(lessonId)).containsExactly(assignment);
     }
 
     @Test
