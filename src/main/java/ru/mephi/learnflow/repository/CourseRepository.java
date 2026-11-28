@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findAllByCategory_Id(Long categoryId);
 
+    boolean existsByTeacher_IdAndTitle(Long teacherId, String title);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select c from Course c where c.id = :courseId")
     Optional<Course> findByIdForUpdate(@Param("courseId") Long courseId);

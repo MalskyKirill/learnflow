@@ -25,16 +25,19 @@ public class DemoDataInitializer implements ApplicationRunner {
     private final UserRepository users;
     private final ProfileRepository profiles;
     private final CategoryRepository categories;
+    private final DemoCourseInitializer demoCourse;
     private final PasswordEncoder passwords;
     private final String teacherPassword;
     private final String studentPassword;
 
     public DemoDataInitializer(UserRepository users, ProfileRepository profiles, CategoryRepository categories,
-            PasswordEncoder passwords, @Value("${DEMO_TEACHER_PASSWORD:}") String teacherPassword,
+            DemoCourseInitializer demoCourse, PasswordEncoder passwords,
+            @Value("${DEMO_TEACHER_PASSWORD:}") String teacherPassword,
             @Value("${DEMO_STUDENT_PASSWORD:}") String studentPassword) {
         this.users = users;
         this.profiles = profiles;
         this.categories = categories;
+        this.demoCourse = demoCourse;
         this.passwords = passwords;
         this.teacherPassword = teacherPassword;
         this.studentPassword = studentPassword;
@@ -49,12 +52,13 @@ public class DemoDataInitializer implements ApplicationRunner {
                 "DEMO_STUDENT_PASSWORD");
         ensureProfile(teacher, "Преподаватель курса по ORM и Hibernate");
         ensureProfile(student, "Изучаю Java и JPA");
-        categories.findByName(CATEGORY_NAME)
+        Category category = categories.findByName(CATEGORY_NAME)
                 .orElseGet(() -> categories.save(new Category(CATEGORY_NAME)));
+        demoCourse.initialize(category.getId(), teacher.getId(), student.getId());
     }
 
     private User ensureUser(String name, String email, UserRole role, String password, String passwordVariable) {
-        return users.findByEmail(email)
+        return users.findForUpdateByEmail(email)
                 .map(existing -> {
                     if (existing.getRole() != role || existing.getPasswordHash() == null
                             || existing.getPasswordHash().isBlank()) {

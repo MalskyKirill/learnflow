@@ -21,7 +21,7 @@ curl http://localhost:8080/api/courses
 
 Для остановки PostgreSQL используй `docker compose stop postgres`.
 
-### Демо-учётные записи
+### Демо-курс
 
 Для первого запуска демо задай `DEMO_TEACHER_PASSWORD` и `DEMO_STUDENT_PASSWORD` в файле `.env` и запусти приложение с профилями `dev,demo`.
 
@@ -29,7 +29,15 @@ curl http://localhost:8080/api/courses
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,demo
 ```
 
-Профиль создаёт категорию «ORM и Hibernate» и учётные записи `teacher@demo.learnflow.example` и `student@demo.learnflow.example`. Приложение сохраняет хеши паролей при создании учётных записей. Повторный запуск использует те же записи.
+Профиль создаёт категорию «ORM и Hibernate», учётные записи `teacher@demo.learnflow.example` и `student@demo.learnflow.example` и курс «Практика ORM с Hibernate» с уроком, заданием и викториной. Студент уже записан на курс. Повторный запуск сохраняет прогресс и пароли.
+
+Чтобы узнать ID курса, запроси список курсов студента.
+
+```sh
+curl -fsS --user student@demo.learnflow.example http://localhost:8080/api/me/courses
+```
+
+С этим ID открой `GET /api/courses/{courseId}/program`. В ответе будут ID модуля и урока для просмотра викторины и задания.
 
 ## REST API
 
