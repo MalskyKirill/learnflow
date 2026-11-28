@@ -138,6 +138,14 @@ curl -fsS --user "$TEACHER" "$API/quizzes/$quiz_id/attempts"
 
 ## Тесты
 
+Юнит-тесты правил записи, оценивания и прохождения викторин запускаются без Docker.
+
+```sh
+./mvnw '-Dtest=*UnitTest' test
+```
+
+Полный набор тестов запускается командой ниже.
+
 ```sh
 ./mvnw verify
 ```
