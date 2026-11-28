@@ -45,12 +45,16 @@ public class CourseModule {
     }
 
     CourseModule(Course course, String title, int position) {
+        rename(title);
+        this.course = course;
+        this.position = position;
+    }
+
+    public void rename(String title) {
         if (title == null || title.isBlank() || title.length() > 255) {
             throw new InvalidInputException("Название модуля должно содержать от 1 до 255 символов");
         }
-        this.course = course;
         this.title = title;
-        this.position = position;
     }
 
     public Long getId() {
@@ -78,5 +82,9 @@ public class CourseModule {
         Lesson lesson = new Lesson(this, title, content, position);
         lessons.add(lesson);
         return lesson;
+    }
+
+    public void removeLesson(Lesson lesson) {
+        lessons.remove(lesson);
     }
 }

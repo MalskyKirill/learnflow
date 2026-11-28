@@ -1,6 +1,7 @@
 package ru.mephi.learnflow.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,19 +19,27 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import ru.mephi.learnflow.dto.request.CreateLessonRequest;
 import ru.mephi.learnflow.dto.request.CreateModuleRequest;
+import ru.mephi.learnflow.dto.request.UpdateLessonRequest;
+import ru.mephi.learnflow.dto.request.UpdateModuleRequest;
 import ru.mephi.learnflow.entity.Category;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
 import ru.mephi.learnflow.repository.CategoryRepository;
 import ru.mephi.learnflow.repository.UserRepository;
+import ru.mephi.learnflow.service.AssignmentService;
 import ru.mephi.learnflow.service.CourseContentService;
 import ru.mephi.learnflow.service.CourseService;
+import ru.mephi.learnflow.service.EnrollmentService;
+import ru.mephi.learnflow.service.QuizService;
+import ru.mephi.learnflow.service.SubmissionService;
 
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static ru.mephi.learnflow.controller.ApiTestRequests.basic;
@@ -65,6 +74,21 @@ class CourseContentControllerTest {
 
     @Autowired
     private UserRepository users;
+
+    @Autowired
+    private AssignmentService assignments;
+
+    @Autowired
+    private EnrollmentService enrollments;
+
+    @Autowired
+    private QuizService quizzes;
+
+    @Autowired
+    private SubmissionService submissions;
+
+    @Autowired
+    private EntityManager entities;
 
     private MockMvc http;
     private User teacher;
@@ -158,6 +182,96 @@ class CourseContentControllerTest {
                         .content(json.writeValueAsString(new CreateLessonRequest("Сущности", null))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void teacherUpdatesAndDeletesModulesAndLessonsThroughHttp() throws Exception {
+        Long moduleId = content.addModule(courseId, teacher.getId(), "Основы").id();
+        Long otherModuleId = content.addModule(courseId, teacher.getId(), "Запросы").id();
+        Long lessonId = content.addLesson(moduleId, teacher.getId(), "Сущности", "Разметка JPA").id();
+        Long otherLessonId = content.addLesson(moduleId, teacher.getId(), "Коллекции", null).id();
+        Long assignmentId = assignments.createAssignment(lessonId, teacher.getId(), "Связи", null, null, 10).id();
+        Long otherAssignmentId = assignments.createAssignment(otherLessonId, teacher.getId(),
+                "Типы коллекций", null, null, 10).id();
+        RequestPostProcessor credentials = authenticatedWrite(teacher);
+        HttpHeaders headers = basic(teacher.getEmail(), PASSWORD);
+
+        http.perform(put("/api/modules/{id}", moduleId).with(credentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(new UpdateModuleRequest("Основы JPA"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.position").value(1));
+        http.perform(put("/api/lessons/{id}", lessonId).with(credentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(new UpdateLessonRequest("Связи", "Внешние ключи"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.position").value(1));
+        entities.flush();
+        entities.clear();
+
+        http.perform(get("/api/modules/{id}", moduleId).headers(headers))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.title").value("Основы JPA"));
+        http.perform(get("/api/lessons/{id}", lessonId).headers(headers))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Связи"))
+                .andExpect(jsonPath("$.content").value("Внешние ключи"));
+
+        http.perform(delete("/api/lessons/{id}", lessonId).with(credentials)).andExpect(status().isNoContent());
+        entities.clear();
+        http.perform(get("/api/lessons/{id}", lessonId).headers(headers)).andExpect(status().isNotFound());
+        http.perform(get("/api/assignments/{id}", assignmentId).headers(headers)).andExpect(status().isNotFound());
+        http.perform(get("/api/lessons/{id}", otherLessonId).headers(headers))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.position").value(2));
+
+        http.perform(delete("/api/modules/{id}", moduleId).with(credentials)).andExpect(status().isNoContent());
+        entities.clear();
+        http.perform(get("/api/modules/{id}", moduleId).headers(headers)).andExpect(status().isNotFound());
+        http.perform(get("/api/lessons/{id}", otherLessonId).headers(headers)).andExpect(status().isNotFound());
+        http.perform(get("/api/assignments/{id}", otherAssignmentId).headers(headers)).andExpect(status().isNotFound());
+        http.perform(get("/api/modules/{id}", otherModuleId).headers(headers))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.position").value(2));
+    }
+
+    @Test
+    void onlyCourseTeacherCanUpdateAndDeleteModulesAndLessons() throws Exception {
+        Long moduleId = content.addModule(courseId, teacher.getId(), "Основы").id();
+        Long lessonId = content.addLesson(moduleId, teacher.getId(), "Сущности", null).id();
+        User student = createAccount("Анна", "course-content-student@example.org", UserRole.STUDENT);
+        User outsider = createAccount("Ирина", "course-content-teacher@example.org", UserRole.TEACHER);
+        RequestPostProcessor studentCredentials = authenticatedWrite(student);
+        RequestPostProcessor otherTeacherCredentials = authenticatedWrite(outsider);
+
+        http.perform(put("/api/modules/{id}", moduleId).with(studentCredentials).contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(new UpdateModuleRequest("Другое название"))))
+                .andExpect(status().isForbidden());
+        http.perform(put("/api/lessons/{id}", lessonId).with(otherTeacherCredentials)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(new UpdateLessonRequest("Другой урок", null))))
+                .andExpect(status().isForbidden());
+        http.perform(delete("/api/modules/{id}", moduleId).with(otherTeacherCredentials))
+                .andExpect(status().isForbidden());
+        http.perform(delete("/api/lessons/{id}", lessonId).with(studentCredentials))
+                .andExpect(status().isForbidden());
+        assertThat(content.getModule(moduleId).title()).isEqualTo("Основы");
+        assertThat(content.getLesson(lessonId).title()).isEqualTo("Сущности");
+    }
+
+    @Test
+    void deletionPreservesQuizzesAndStudentSubmissions() throws Exception {
+        Long moduleId = content.addModule(courseId, teacher.getId(), "Основы").id();
+        Long lessonId = content.addLesson(moduleId, teacher.getId(), "Сущности", null).id();
+        Long assignmentId = assignments.createAssignment(lessonId, teacher.getId(), "Связи", null, null, 10).id();
+        User student = createAccount("Анна", "course-content-student@example.org", UserRole.STUDENT);
+        enrollments.enrollStudent(courseId, student.getId());
+        Long submissionId = submissions.submitAssignment(assignmentId, student.getId(), "Связь ManyToOne").id();
+
+        Long quizModuleId = content.addModule(courseId, teacher.getId(), "Запросы").id();
+        Long quizId = quizzes.createQuiz(quizModuleId, teacher.getId(), "JPQL").id();
+        entities.flush();
+        entities.clear();
+        RequestPostProcessor credentials = authenticatedWrite(teacher);
+
+        http.perform(delete("/api/lessons/{id}", lessonId).with(credentials)).andExpect(status().isConflict());
+        http.perform(delete("/api/modules/{id}", moduleId).with(credentials)).andExpect(status().isConflict());
+        http.perform(delete("/api/modules/{id}", quizModuleId).with(credentials)).andExpect(status().isConflict());
+        assertThat(submissions.getSubmission(submissionId, student.getId()).assignmentId()).isEqualTo(assignmentId);
+        assertThat(quizzes.getQuiz(quizId, teacher.getId()).quiz().moduleId()).isEqualTo(quizModuleId);
     }
 
     private User createAccount(String name, String email, UserRole role) {

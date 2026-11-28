@@ -122,4 +122,8 @@ public class Course {
         modules.add(module);
         return module;
     }
+
+    public void removeModule(CourseModule module) {
+        modules.remove(module);
+    }
 }

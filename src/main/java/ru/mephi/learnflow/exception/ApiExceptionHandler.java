@@ -35,7 +35,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({AlreadyEnrolledException.class, AlreadySubmittedException.class, CourseInUseException.class,
-            QuizAlreadyExistsException.class})
+            CourseContentInUseException.class, QuizAlreadyExistsException.class})
     public ProblemDetail conflict(RuntimeException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
