@@ -21,6 +21,16 @@ curl http://localhost:8080/api/courses
 
 Для остановки PostgreSQL используй `docker compose stop postgres`.
 
+### Демо-учётные записи
+
+Для первого запуска демо задай `DEMO_TEACHER_PASSWORD` и `DEMO_STUDENT_PASSWORD` в файле `.env` и запусти приложение с профилями `dev,demo`.
+
+```sh
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,demo
+```
+
+Профиль создаёт категорию «ORM и Hibernate» и учётные записи `teacher@demo.learnflow.example` и `student@demo.learnflow.example`. Приложение сохраняет хеши паролей при создании учётных записей. Повторный запуск использует те же записи.
+
 ## REST API
 
 Список и карточки курсов доступны без входа. Для остальных маршрутов используй HTTP Basic с email и паролем учётной записи LearnFlow. Для `POST`, `PUT` и `DELETE` также передавай cookie и CSRF-заголовок из `GET /api/csrf`.
@@ -43,8 +53,8 @@ curl http://localhost:8080/api/courses
 
 ```sh
 API=http://localhost:8080/api
-TEACHER=teacher@example.org
-STUDENT=student@example.org
+TEACHER=teacher@demo.learnflow.example
+STUDENT=student@demo.learnflow.example
 CATEGORY_ID=1
 
 teacher_cookie=$(mktemp)
