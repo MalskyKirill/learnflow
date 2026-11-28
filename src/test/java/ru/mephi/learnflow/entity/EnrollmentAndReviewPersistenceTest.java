@@ -3,12 +3,17 @@ package ru.mephi.learnflow.entity;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -84,5 +89,18 @@ class EnrollmentAndReviewPersistenceTest {
         assertThatIllegalArgumentException().isThrownBy(() -> course.addReview(teacher, 5, null));
         assertThatIllegalArgumentException().isThrownBy(() -> course.addReview(student, 0, null));
         assertThatIllegalArgumentException().isThrownBy(() -> course.addReview(student, 6, null));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 6})
+    void databaseRejectsReviewRatingOutsideAllowedRange(int invalidRating) {
+        CourseReview review = course.addReview(student, 5, "Понятные примеры");
+        entities.persist(review);
+        entities.flush();
+
+        assertThatThrownBy(() -> jdbc.update("update course_reviews set rating = ? where id = ?",
+                invalidRating, review.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class).rootCause()
+                .isInstanceOfSatisfying(SQLException.class, cause -> assertThat(cause.getSQLState()).isEqualTo("23514"));
     }
 }

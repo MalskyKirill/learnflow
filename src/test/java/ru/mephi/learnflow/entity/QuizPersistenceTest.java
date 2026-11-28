@@ -6,11 +6,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -94,6 +96,60 @@ class QuizPersistenceTest {
         assertThatThrownBy(() -> jdbc.update(
                 "insert into quizzes (module_id, title) values (?, ?)", module.getId(), "Второй тест"))
                 .isInstanceOf(DuplicateKeyException.class);
+    }
+
+    @Test
+    void databaseRejectsNegativeQuizScore() {
+        entities.persist(quiz);
+        QuizSubmission attempt = new QuizSubmission(quiz, student, 0);
+        entities.persist(attempt);
+        entities.flush();
+
+        assertThatThrownBy(() -> jdbc.update("update quiz_submissions set score = -1 where id = ?", attempt.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class).rootCause()
+                .isInstanceOfSatisfying(SQLException.class, cause -> assertThat(cause.getSQLState()).isEqualTo("23514"));
+    }
+
+    @Test
+    void quizWithAttemptsIsProtectedByForeignKey() {
+        entities.persist(quiz);
+        entities.persist(new QuizSubmission(quiz, student, 0));
+        entities.flush();
+
+        assertThatThrownBy(() -> jdbc.update("delete from quizzes where id = ?", quiz.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class).rootCause()
+                .isInstanceOfSatisfying(SQLException.class, cause -> assertThat(cause.getSQLState()).isEqualTo("23503"));
+    }
+
+    @Test
+    void removingQuizAndAttemptCascadesToTheirOwnedRows() {
+        Question question = quiz.addQuestion("Какая аннотация описывает связь многие к одному?");
+        AnswerOption correct = question.addOption("@ManyToOne", true);
+        AnswerOption incorrect = question.addOption("@OneToMany", false);
+        entities.persist(quiz);
+        QuizSubmission attempt = new QuizSubmission(quiz, student, 1);
+        attempt.addAnswer(correct);
+        entities.persist(attempt);
+        entities.flush();
+        Long answerId = attempt.getAnswers().getFirst().getId();
+        entities.clear();
+
+        entities.remove(entities.find(QuizSubmission.class, attempt.getId()));
+        entities.flush();
+        entities.clear();
+
+        assertThat(entities.find(StudentAnswer.class, answerId)).isNull();
+        assertThat(entities.find(AnswerOption.class, correct.getId())).isNotNull();
+        assertThat(entities.find(User.class, student.getId())).isNotNull();
+
+        entities.remove(entities.find(Quiz.class, quiz.getId()));
+        entities.flush();
+        entities.clear();
+
+        assertThat(entities.find(Question.class, question.getId())).isNull();
+        assertThat(entities.find(AnswerOption.class, correct.getId())).isNull();
+        assertThat(entities.find(AnswerOption.class, incorrect.getId())).isNull();
+        assertThat(entities.find(CourseModule.class, module.getId())).isNotNull();
     }
 
     @Test

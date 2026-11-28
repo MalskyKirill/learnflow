@@ -4,11 +4,13 @@ import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.SQLException;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,5 +72,22 @@ class AssignmentPersistenceTest {
                 values (?, ?, current_timestamp, ?)
                 """, anna.getId(), mapping.getId(), "Повторная сдача"))
                 .isInstanceOf(DuplicateKeyException.class);
+    }
+
+    @Test
+    void databaseRejectsNonPositiveAssignmentMaximum() {
+        Category category = new Category("Базы данных");
+        User teacher = new User("Мария", "maria@example.org", UserRole.TEACHER);
+        entities.persist(category);
+        entities.persist(teacher);
+        Course course = new Course("Hibernate", null, category, teacher);
+        Assignment assignment = course.addModule("JPA").addLesson("Связи", null)
+                .addAssignment("Маппинг", null, null, 20);
+        entities.persist(course);
+        entities.flush();
+
+        assertThatThrownBy(() -> jdbc.update("update assignments set max_score = 0 where id = ?", assignment.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class).rootCause()
+                .isInstanceOfSatisfying(SQLException.class, cause -> assertThat(cause.getSQLState()).isEqualTo("23514"));
     }
 }
