@@ -40,7 +40,8 @@ public class SubmissionService {
 
     @Transactional
     public SubmissionDetails submitAssignment(Long assignmentId, Long studentId, String content) {
-        Assignment assignment = requireAssignment(assignmentId);
+        Assignment assignment = assignments.findByIdForUpdate(assignmentId)
+                .orElseThrow(() -> assignmentNotFound(assignmentId));
         Long courseId = assignment.getLesson().getModule().getCourse().getId();
         Enrollment enrollment = enrollments.findByStudentAndCourseForUpdate(studentId, courseId)
                 .orElseThrow(() -> new EnrollmentRequiredException(courseId));
@@ -58,8 +59,10 @@ public class SubmissionService {
 
     @Transactional
     public SubmissionDetails gradeSubmission(Long submissionId, Long teacherId, int score, String feedback) {
+        Assignment assignment = assignments.findBySubmissionIdForUpdate(submissionId)
+                .orElseThrow(() -> submissionNotFound(submissionId));
+        requireCourseTeacher(assignment, teacherId);
         Submission submission = requireSubmission(submissionId);
-        requireCourseTeacher(submission.getAssignment(), teacherId);
         submission.grade(score, feedback);
         return SubmissionDetails.from(submission);
     }
@@ -92,12 +95,20 @@ public class SubmissionService {
 
     private Assignment requireAssignment(Long assignmentId) {
         return assignments.findWithLessonAndModuleById(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Задание " + assignmentId + " не найдено"));
+                .orElseThrow(() -> assignmentNotFound(assignmentId));
     }
 
     private Submission requireSubmission(Long submissionId) {
         return submissions.findWithCourseById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Решение " + submissionId + " не найдено"));
+                .orElseThrow(() -> submissionNotFound(submissionId));
+    }
+
+    private ResourceNotFoundException assignmentNotFound(Long assignmentId) {
+        return new ResourceNotFoundException("Задание " + assignmentId + " не найдено");
+    }
+
+    private ResourceNotFoundException submissionNotFound(Long submissionId) {
+        return new ResourceNotFoundException("Решение " + submissionId + " не найдено");
     }
 
     private void requireCourseTeacher(Assignment assignment, Long teacherId) {

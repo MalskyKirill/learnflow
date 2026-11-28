@@ -49,13 +49,15 @@ curl -fsS --user student@demo.learnflow.example http://localhost:8080/api/me/cou
 | Курсы | `GET/POST /api/courses`, `GET/PUT/DELETE /api/courses/{courseId}` |
 | Программа | `GET /api/courses/{courseId}/program`, `GET/POST /api/courses/{courseId}/modules`, `GET/PUT/DELETE /api/modules/{moduleId}`, `POST /api/modules/{moduleId}/lessons`, `GET/PUT/DELETE /api/lessons/{lessonId}` |
 | Запись на курс | `GET/POST/DELETE /api/courses/{courseId}/enrollment`, `GET /api/me/courses`, `GET /api/courses/{courseId}/students` |
-| Задания и решения | `GET/POST /api/lessons/{lessonId}/assignments`, `GET /api/assignments/{assignmentId}`, `GET/POST /api/assignments/{assignmentId}/submissions`, `GET /api/submissions/{submissionId}`, `PUT /api/submissions/{submissionId}/grade`, `GET /api/me/submissions` |
+| Задания и решения | `GET/POST /api/lessons/{lessonId}/assignments`, `GET/PUT/DELETE /api/assignments/{assignmentId}`, `GET/POST /api/assignments/{assignmentId}/submissions`, `GET /api/submissions/{submissionId}`, `PUT /api/submissions/{submissionId}/grade`, `GET /api/me/submissions` |
 | Викторины | `GET/POST /api/modules/{moduleId}/quiz`, `GET /api/quizzes/{quizId}`, `POST /api/quizzes/{quizId}/questions`, `GET /api/quizzes/{quizId}/questions/{questionId}` |
 | Попытки | `GET/POST /api/quizzes/{quizId}/attempts`, `GET /api/quiz-attempts/{attemptId}`, `GET /api/me/quiz-attempts` |
 
 При создании ресурса API возвращает `201 Created` и заголовок `Location`. Ошибки приходят в формате `application/problem+json`. При ошибках валидации тело ответа включает список полей с сообщениями.
 
 Преподаватель курса может редактировать и удалять модули и уроки. Удаление модуля вместе с уроками и заданиями возвращает `204 No Content`. Если с модулем связана викторина или к его заданиям есть решения, API возвращает `409 Conflict`. Такое же ограничение действует на удаление урока с решениями.
+
+Только преподаватель курса может редактировать и удалять задания. Если к заданию есть решения, удаление возвращает `409 Conflict`. Этот же статус возвращает попытка установить максимум ниже уже выставленной оценки.
 
 ### Подготовка примеров
 

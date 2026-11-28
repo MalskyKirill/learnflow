@@ -4,15 +4,18 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import ru.mephi.learnflow.dto.AssignmentDetails;
 import ru.mephi.learnflow.dto.request.CreateAssignmentRequest;
+import ru.mephi.learnflow.dto.request.UpdateAssignmentRequest;
 import ru.mephi.learnflow.security.LearnFlowPrincipal;
 import ru.mephi.learnflow.service.AssignmentService;
 
@@ -47,5 +50,19 @@ public class AssignmentController {
     @GetMapping("/assignments/{assignmentId}")
     public AssignmentDetails getAssignment(@PathVariable @Positive Long assignmentId) {
         return assignments.getAssignment(assignmentId);
+    }
+
+    @PutMapping("/assignments/{assignmentId}")
+    public AssignmentDetails updateAssignment(@PathVariable @Positive Long assignmentId,
+            @Valid @RequestBody UpdateAssignmentRequest request, @AuthenticationPrincipal LearnFlowPrincipal principal) {
+        return assignments.updateAssignment(assignmentId, principal.getUserId(), request.title(),
+                request.description(), request.dueAt(), request.maxScore());
+    }
+
+    @DeleteMapping("/assignments/{assignmentId}")
+    public ResponseEntity<Void> deleteAssignment(@PathVariable @Positive Long assignmentId,
+                                                 @AuthenticationPrincipal LearnFlowPrincipal principal) {
+        assignments.deleteAssignment(assignmentId, principal.getUserId());
+        return ResponseEntity.noContent().build();
     }
 }

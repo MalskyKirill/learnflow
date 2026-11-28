@@ -10,6 +10,10 @@ import java.util.Optional;
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     boolean existsByStudent_IdAndAssignment_Id(Long studentId, Long assignmentId);
 
+    boolean existsByAssignment_Id(Long assignmentId);
+
+    boolean existsByAssignment_IdAndScoreGreaterThan(Long assignmentId, int score);
+
     boolean existsByAssignment_Lesson_Id(Long lessonId);
 
     boolean existsByAssignment_Lesson_Module_Id(Long moduleId);

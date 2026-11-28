@@ -50,13 +50,17 @@ public class Assignment {
     }
 
     Assignment(Lesson lesson, String title, String description, Instant dueAt, int maxScore) {
+        updateDetails(title, description, dueAt, maxScore);
+        this.lesson = lesson;
+    }
+
+    public void updateDetails(String title, String description, Instant dueAt, int maxScore) {
         if (title == null || title.isBlank() || title.length() > 255) {
             throw new InvalidInputException("Название задания должно содержать от 1 до 255 символов");
         }
         if (maxScore < 1) {
             throw new InvalidInputException("Максимальный балл должен быть положительным");
         }
-        this.lesson = lesson;
         this.title = title;
         this.description = description;
         this.dueAt = dueAt;

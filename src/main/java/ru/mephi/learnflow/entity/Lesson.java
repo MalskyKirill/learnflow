@@ -89,4 +89,8 @@ public class Lesson {
         assignments.add(assignment);
         return assignment;
     }
+
+    public void removeAssignment(Assignment assignment) {
+        assignments.remove(assignment);
+    }
 }
