@@ -28,11 +28,11 @@ import ru.mephi.learnflow.dto.request.CreateAssignmentRequest;
 import ru.mephi.learnflow.dto.request.CreateCourseRequest;
 import ru.mephi.learnflow.dto.request.CreateLessonRequest;
 import ru.mephi.learnflow.dto.request.CreateModuleRequest;
-import ru.mephi.learnflow.dto.request.CreateQuizQuestionRequest;
-import ru.mephi.learnflow.dto.request.CreateQuizQuestionRequest.Option;
-import ru.mephi.learnflow.dto.request.CreateQuizRequest;
 import ru.mephi.learnflow.dto.request.CreateSubmissionRequest;
 import ru.mephi.learnflow.dto.request.GradeSubmissionRequest;
+import ru.mephi.learnflow.dto.request.QuizQuestionRequest;
+import ru.mephi.learnflow.dto.request.QuizQuestionRequest.Option;
+import ru.mephi.learnflow.dto.request.QuizRequest;
 import ru.mephi.learnflow.dto.request.SubmitQuizAttemptRequest;
 import ru.mephi.learnflow.entity.Category;
 import ru.mephi.learnflow.entity.EnrollmentStatus;
@@ -105,11 +105,11 @@ class RestApiWorkflowTest {
         AuthenticatedClient teacher = scenario.teacher();
         AuthenticatedClient student = scenario.student();
         String moduleQuizPath = "/api/modules/" + scenario.moduleId() + "/quiz";
-        QuizDetails quiz = create(teacher, moduleQuizPath, new CreateQuizRequest("Связи и загрузка"), QuizDetails.class);
+        QuizDetails quiz = create(teacher, moduleQuizPath, new QuizRequest("Связи и загрузка"), QuizDetails.class);
         String quizPath = "/api/quizzes/" + quiz.id();
-        create(teacher, quizPath + "/questions", new CreateQuizQuestionRequest("Какая аннотация нужна?",
+        create(teacher, quizPath + "/questions", new QuizQuestionRequest("Какая аннотация нужна?",
                 List.of(new Option("@OneToMany", false), new Option("@ManyToOne", true))), QuizQuestionDetails.class);
-        create(teacher, quizPath + "/questions", new CreateQuizQuestionRequest("Как отложить загрузку?",
+        create(teacher, quizPath + "/questions", new QuizQuestionRequest("Как отложить загрузку?",
                 List.of(new Option("LAZY", true), new Option("EAGER", false))), QuizQuestionDetails.class);
 
         QuizView view = body(student.http().getForEntity(moduleQuizPath, QuizView.class), HttpStatus.OK);

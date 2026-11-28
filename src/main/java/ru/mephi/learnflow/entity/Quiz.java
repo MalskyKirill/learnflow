@@ -43,10 +43,14 @@ public class Quiz {
     }
 
     public Quiz(CourseModule module, String title) {
+        this.module = module;
+        rename(title);
+    }
+
+    public void rename(String title) {
         if (title == null || title.isBlank() || title.length() > 255) {
             throw new InvalidInputException("Название викторины должно содержать от 1 до 255 символов");
         }
-        this.module = module;
         this.title = title;
     }
 
@@ -70,6 +74,10 @@ public class Quiz {
         Question question = new Question(this, text);
         questions.add(question);
         return question;
+    }
+
+    public void removeQuestion(Question question) {
+        questions.remove(question);
     }
 
     public List<AnswerOption> resolveSelectedOptions(Map<Long, Long> answers) {

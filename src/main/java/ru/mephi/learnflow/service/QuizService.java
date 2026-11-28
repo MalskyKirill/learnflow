@@ -15,6 +15,7 @@ import ru.mephi.learnflow.entity.Quiz;
 import ru.mephi.learnflow.entity.QuizSubmission;
 import ru.mephi.learnflow.entity.User;
 import ru.mephi.learnflow.entity.UserRole;
+import ru.mephi.learnflow.exception.CourseContentInUseException;
 import ru.mephi.learnflow.exception.EnrollmentRequiredException;
 import ru.mephi.learnflow.exception.InvalidInputException;
 import ru.mephi.learnflow.exception.QuizAlreadyExistsException;
@@ -58,26 +59,55 @@ public class QuizService {
     }
 
     @Transactional
-    public QuizQuestionDetails addQuestion(Long quizId, Long teacherId, String text, List<QuizOptionDraft> options) {
-        Quiz quiz = requireQuiz(quizId);
-        quiz.getModule().getCourse().requireTeacher(teacherId);
-        if (text == null || text.isBlank()) {
-            throw new InvalidInputException("Текст вопроса не должен быть пустым");
-        }
-        if (options == null || options.size() < 2) {
-            throw new InvalidInputException("У вопроса должно быть не менее двух вариантов ответа");
-        }
-        if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
-            throw new InvalidInputException("Текст варианта ответа не должен быть пустым");
-        }
-        if (options.stream().filter(QuizOptionDraft::correct).count() != 1) {
-            throw new InvalidInputException("У вопроса должен быть ровно один правильный вариант");
-        }
+    public QuizDetails updateQuiz(Long quizId, Long teacherId, String title) {
+        Quiz quiz = requireOwnedQuizForUpdate(quizId, teacherId);
+        quiz.rename(title);
+        return QuizDetails.from(quiz);
+    }
 
+    @Transactional
+    public void deleteQuiz(Long quizId, Long teacherId) {
+        Quiz quiz = requireOwnedQuizForUpdate(quizId, teacherId);
+        if (attempts.existsByQuiz_Id(quizId)) {
+            throw new CourseContentInUseException("Нельзя удалить викторину " + quizId + ", пока у неё есть попытки");
+        }
+        quizzes.delete(quiz);
+        quizzes.flush();
+    }
+
+    @Transactional
+    public QuizQuestionDetails addQuestion(Long quizId, Long teacherId, String text, List<QuizOptionDraft> options) {
+        Quiz quiz = requireOwnedQuizForUpdate(quizId, teacherId);
+        validateOptions(options);
         Question question = quiz.addQuestion(text);
-        options.forEach(option -> question.addOption(option.text(), option.correct()));
+        addOptions(question, options);
         quizzes.flush();
         return QuizQuestionDetails.from(question);
+    }
+
+    @Transactional
+    public QuizQuestionDetails updateQuestion(Long quizId, Long questionId, Long teacherId, String text,
+                                              List<QuizOptionDraft> options) {
+        requireOwnedQuizForUpdate(quizId, teacherId);
+        Question question = requireUnansweredQuestion(quizId, questionId);
+        validateOptions(options);
+        question.changeText(text);
+        List<QuizOptionDraft> currentOptions = question.getOptions().stream()
+                .map(option -> new QuizOptionDraft(option.getText(), option.isCorrect()))
+                .toList();
+        if (!currentOptions.equals(options)) {
+            question.clearOptions();
+            addOptions(question, options);
+        }
+        quizzes.flush();
+        return QuizQuestionDetails.from(question);
+    }
+
+    @Transactional
+    public void deleteQuestion(Long quizId, Long questionId, Long teacherId) {
+        Quiz quiz = requireOwnedQuizForUpdate(quizId, teacherId);
+        quiz.removeQuestion(requireUnansweredQuestion(quizId, questionId));
+        quizzes.flush();
     }
 
     @Transactional(readOnly = true)
@@ -96,13 +126,13 @@ public class QuizService {
     public QuizQuestionDetails getQuestionForTeacher(Long quizId, Long questionId, Long teacherId) {
         Quiz quiz = requireQuiz(quizId);
         quiz.getModule().getCourse().requireTeacher(teacherId);
-        return quizzes.findQuestionWithOptions(quizId, questionId).map(QuizQuestionDetails::from)
-                .orElseThrow(() -> new ResourceNotFoundException("Вопрос " + questionId + " не найден"));
+        return QuizQuestionDetails.from(requireQuestion(quizId, questionId));
     }
 
     @Transactional
     public QuizAttemptDetails submitQuiz(Long quizId, Long studentId, Map<Long, Long> answers) {
-        Quiz quiz = requireQuizWithQuestions(quizId);
+        // Блокировка сохраняет структуру викторины до записи попытки.
+        Quiz quiz = quizzes.findForAttemptById(quizId).orElseThrow(() -> quizNotFound(quizId));
         Long courseId = quiz.getModule().getCourse().getId();
         Enrollment enrollment = enrollments.findByStudentAndCourseForUpdate(studentId, courseId)
                 .orElseThrow(() -> new EnrollmentRequiredException(courseId, "прохождения викторины"));
@@ -158,6 +188,42 @@ public class QuizService {
 
     private Quiz requireQuizWithQuestions(Long quizId) {
         return quizzes.findWithQuestionsById(quizId).orElseThrow(() -> quizNotFound(quizId));
+    }
+
+    private Quiz requireOwnedQuizForUpdate(Long quizId, Long teacherId) {
+        Quiz quiz = quizzes.findForUpdateById(quizId).orElseThrow(() -> quizNotFound(quizId));
+        quiz.getModule().getCourse().requireTeacher(teacherId);
+        return quiz;
+    }
+
+    private Question requireQuestion(Long quizId, Long questionId) {
+        return quizzes.findQuestionWithOptions(quizId, questionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Вопрос " + questionId + " не найден"));
+    }
+
+    private Question requireUnansweredQuestion(Long quizId, Long questionId) {
+        Question question = requireQuestion(quizId, questionId);
+        if (attempts.existsByAnswers_Question_Id(questionId)) {
+            throw new CourseContentInUseException(
+                    "Нельзя изменить или удалить вопрос " + questionId + ", пока у него есть ответы студентов");
+        }
+        return question;
+    }
+
+    private void validateOptions(List<QuizOptionDraft> options) {
+        if (options == null || options.size() < 2) {
+            throw new InvalidInputException("У вопроса должно быть не менее двух вариантов ответа");
+        }
+        if (options.stream().anyMatch(option -> option == null || option.text() == null || option.text().isBlank())) {
+            throw new InvalidInputException("Текст варианта ответа не должен быть пустым");
+        }
+        if (options.stream().filter(QuizOptionDraft::correct).count() != 1) {
+            throw new InvalidInputException("У вопроса должен быть ровно один правильный вариант");
+        }
+    }
+
+    private void addOptions(Question question, List<QuizOptionDraft> options) {
+        options.forEach(option -> question.addOption(option.text(), option.correct()));
     }
 
     private ResourceNotFoundException quizNotFound(Long quizId) {

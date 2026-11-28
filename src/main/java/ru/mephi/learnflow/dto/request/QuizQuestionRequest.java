@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-public record CreateQuizQuestionRequest(
+public record QuizQuestionRequest(
         @NotBlank String text,
         @NotNull @Size(min = 2) List<@NotNull @Valid Option> options) {
 

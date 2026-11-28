@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import ru.mephi.learnflow.exception.InvalidInputException;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,6 +42,13 @@ public class Question {
 
     Question(Quiz quiz, String text) {
         this.quiz = quiz;
+        changeText(text);
+    }
+
+    public void changeText(String text) {
+        if (text == null || text.isBlank()) {
+            throw new InvalidInputException("Текст вопроса не должен быть пустым");
+        }
         this.text = text;
     }
 
@@ -64,5 +72,9 @@ public class Question {
         AnswerOption option = new AnswerOption(this, text, correct);
         options.add(option);
         return option;
+    }
+
+    public void clearOptions() {
+        options.clear();
     }
 }

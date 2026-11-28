@@ -74,7 +74,7 @@ docker compose up -d --wait postgres
 | Программа | `GET /api/courses/{courseId}/program`, `GET/POST /api/courses/{courseId}/modules`, `GET/PUT/DELETE /api/modules/{moduleId}`, `POST /api/modules/{moduleId}/lessons`, `GET/PUT/DELETE /api/lessons/{lessonId}` |
 | Запись на курс | `GET/POST/DELETE /api/courses/{courseId}/enrollment`, `GET /api/me/courses`, `GET /api/courses/{courseId}/students` |
 | Задания и решения | `GET/POST /api/lessons/{lessonId}/assignments`, `GET/PUT/DELETE /api/assignments/{assignmentId}`, `GET/POST /api/assignments/{assignmentId}/submissions`, `GET /api/submissions/{submissionId}`, `PUT /api/submissions/{submissionId}/grade`, `GET /api/me/submissions` |
-| Викторины | `GET/POST /api/modules/{moduleId}/quiz`, `GET /api/quizzes/{quizId}`, `POST /api/quizzes/{quizId}/questions`, `GET /api/quizzes/{quizId}/questions/{questionId}` |
+| Викторины | `GET/POST /api/modules/{moduleId}/quiz`, `GET/PUT/DELETE /api/quizzes/{quizId}`, `POST /api/quizzes/{quizId}/questions`, `GET/PUT/DELETE /api/quizzes/{quizId}/questions/{questionId}` |
 | Попытки | `GET/POST /api/quizzes/{quizId}/attempts`, `GET /api/quiz-attempts/{attemptId}`, `GET /api/me/quiz-attempts` |
 
 При создании ресурса API возвращает `201 Created` и заголовок `Location`. Ошибки приходят в формате `application/problem+json`. При ошибках валидации тело ответа включает список полей с сообщениями.
@@ -82,6 +82,8 @@ docker compose up -d --wait postgres
 Преподаватель курса может редактировать и удалять модули и уроки. Удаление модуля вместе с уроками и заданиями возвращает `204 No Content`. Если с модулем связана викторина или к его заданиям есть решения, API возвращает `409 Conflict`. Такое же ограничение действует на удаление урока с решениями.
 
 Только преподаватель курса может редактировать и удалять задания. Если к заданию есть решения, удаление возвращает `409 Conflict`. Этот же статус возвращает попытка установить максимум ниже уже выставленной оценки.
+
+Преподаватель курса может переименовать викторину, передав `title` в `PUT`. Для редактирования вопроса передай `text` и полный список `options`, как при создании. При изменении списка варианты создаются заново и получают новые ID. Удаление викторины с попытками и изменение или удаление вопроса с ответами студентов возвращают `409 Conflict`.
 
 ### Подготовка примеров
 

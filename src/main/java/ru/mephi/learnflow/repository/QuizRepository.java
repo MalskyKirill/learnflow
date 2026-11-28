@@ -1,7 +1,9 @@
 package ru.mephi.learnflow.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ru.mephi.learnflow.entity.Question;
@@ -14,6 +16,12 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
     Optional<Quiz> findByModule_Id(Long moduleId);
 
     boolean existsByModule_Id(Long moduleId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Quiz> findForUpdateById(Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    Optional<Quiz> findForAttemptById(Long id);
 
     @EntityGraph(attributePaths = "module.course")
     Optional<Quiz> findWithCourseById(Long id);
