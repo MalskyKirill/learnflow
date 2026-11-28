@@ -2,55 +2,66 @@
 
 Учебная платформа для курса по ORM и Hibernate. Модель на Spring Data JPA хранит пользователей, курсы, модули, уроки, записи на курсы, задания, решения, отзывы и результаты тестов в PostgreSQL.
 
-## Локальный запуск
+## Быстрый запуск демо
 
-Понадобятся JDK 21 и запущенный Docker с Docker Compose. Maven устанавливается через Maven Wrapper.
+Понадобится запущенный Docker с Docker Compose. Скопируй `.env.example` в `.env`, если его ещё нет. Задай в нём `POSTGRES_PASSWORD`, `DEMO_TEACHER_PASSWORD` и `DEMO_STUDENT_PASSWORD`.
 
-Если файла `.env` ещё нет, выполни `cp .env.example .env` и задай в нём `POSTGRES_PASSWORD`. При занятом порте 5432 укажи свободный порт в `POSTGRES_PORT`.
+```sh
+SPRING_PROFILES_ACTIVE=dev,demo docker compose up -d --build --wait
+curl -fsS http://localhost:8080/api/courses
+```
+
+Профиль `demo` создаёт категорию «ORM и Hibernate» и курс «Практика ORM с Hibernate» с уроком, заданием и викториной. Студент уже записан на курс. Повторный запуск сохраняет прогресс и пароли.
+
+| Роль | Email для входа | Пароль из `.env` |
+|---|---|---|
+| Преподаватель | `teacher@demo.learnflow.example` | `DEMO_TEACHER_PASSWORD` |
+| Студент | `student@demo.learnflow.example` | `DEMO_STUDENT_PASSWORD` |
+
+Чтобы узнать ID демо-курса, запроси список курсов студента.
+
+```sh
+curl -fsS --user student@demo.learnflow.example http://localhost:8080/api/me/courses
+```
+
+С этим ID открой `GET /api/courses/{courseId}/program`. В программе будут ID модуля и урока для просмотра викторины и задания.
+
+При занятых портах задай `APP_PORT` и `POSTGRES_PORT` в `.env`. После смены `APP_PORT` обнови порт в запросах. Для остановки выполни `docker compose down`. Данные PostgreSQL сохраняются в томе `postgres_data`.
+
+### Локальная разработка
+
+На хосте понадобится JDK 21. Compose поднимет PostgreSQL, Maven Wrapper загрузит Maven, а Hibernate создаст или обновит схему при старте приложения.
 
 ```sh
 docker compose up -d --wait postgres
 ./mvnw spring-boot:run
 ```
 
-Spring использует профиль `dev` по умолчанию. Hibernate создаёт или обновляет таблицы при старте. Чтобы получить список курсов, выполни в другом терминале:
+Профиль `dev` активен по умолчанию. Для демо при запуске Maven добавь `-Dspring-boot.run.profiles=dev,demo`. После остановки приложения PostgreSQL можно остановить командой `docker compose stop postgres`.
 
-```sh
-curl http://localhost:8080/api/courses
-```
+## Модель и структура проекта
 
-Для остановки PostgreSQL используй `docker compose stop postgres`.
+В модели 15 сущностей.
 
-### Запуск приложения и базы в Docker
+| Область | Сущности и связи |
+|---|---|
+| Учётные записи | `User` и `Profile` связаны один к одному общим идентификатором. |
+| Программа | В `Category` входят `Course`. Преподаватель ведёт курс с упорядоченными `CourseModule`, а каждый модуль содержит `Lesson`. |
+| Запись и отзывы | `Enrollment` связывает студентов и курсы отношением многие ко многим. `CourseReview` хранит отзыв студента о курсе. |
+| Домашняя работа | Урок может содержать несколько `Assignment`. Студент отправляет одну `Submission` на задание. В решении хранятся балл и комментарий преподавателя. |
+| Викторины | Модуль может содержать одну `Quiz` с `Question` и `AnswerOption`. `QuizSubmission` хранит балл за попытку, а `StudentAnswer` — выбранный вариант для каждого отвеченного вопроса. |
 
-Для этого варианта достаточно Docker с Docker Compose. Задай `POSTGRES_PASSWORD` в `.env`. Команда соберёт образ приложения и дождётся готовности PostgreSQL и API.
+Основной код находится в пакете `ru.mephi.learnflow`.
 
-```sh
-docker compose up -d --build --wait
-curl -fsS http://localhost:8080/api/courses
-```
+| Пакеты | Ответственность |
+|---|---|
+| `controller`, `dto` | REST-маршруты, тела запросов, валидация и ответы. |
+| `service` | Учебные сценарии, проверка полномочий и транзакции. |
+| `entity`, `repository` | JPA-сущности, правила предметной области, ограничения и запросы к PostgreSQL. |
+| `security`, `exception` | HTTP Basic, CSRF и ответы об ошибках. |
+| `demo` | Начальное наполнение при активном профиле `demo`. |
 
-При занятом порте 8080 задай `APP_PORT` в `.env` и используй этот порт в запросах. Для остановки выполни `docker compose down`. Данные PostgreSQL сохраняются в томе `postgres_data`.
-
-### Демо-курс
-
-Для первого запуска демо задай `DEMO_TEACHER_PASSWORD` и `DEMO_STUDENT_PASSWORD` в файле `.env` и запусти приложение с профилями `dev,demo`.
-
-```sh
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,demo
-```
-
-Для запуска демо через Docker используй `SPRING_PROFILES_ACTIVE=dev,demo docker compose up -d --build --wait`.
-
-Профиль создаёт категорию «ORM и Hibernate», учётные записи `teacher@demo.learnflow.example` и `student@demo.learnflow.example` и курс «Практика ORM с Hibernate» с уроком, заданием и викториной. Студент уже записан на курс. Повторный запуск сохраняет прогресс и пароли.
-
-Чтобы узнать ID курса, запроси список курсов студента.
-
-```sh
-curl -fsS --user student@demo.learnflow.example http://localhost:8080/api/me/courses
-```
-
-С этим ID открой `GET /api/courses/{courseId}/program`. В ответе будут ID модуля и урока для просмотра викторины и задания.
+`spring.jpa.open-in-view` отключён. Программа загружает модули с уроками через `JOIN FETCH`. Викторина загружает вопросы через `@EntityGraph`, затем отдельно получает варианты ответов. Сервисы собирают DTO внутри транзакции. `QuizServiceTest` проверяет, что DTO читается после завершения транзакции, а обращение к незагруженной коллекции вне неё вызывает `LazyInitializationException`.
 
 ## REST API
 
@@ -74,13 +85,14 @@ curl -fsS --user student@demo.learnflow.example http://localhost:8080/api/me/cou
 
 ### Подготовка примеров
 
-Понадобятся `curl` и `jq`. Укажи email существующих учётных записей преподавателя и студента с настроенными паролями и ID категории курса. `curl` запрашивает пароль при каждом защищённом запросе.
+Запусти демо и выполни следующие блоки в одном терминале с `curl` и `jq`. Примеры создают отдельный курс в демо-категории. Когда `curl` запросит пароль, введи значение для этой учётной записи из `.env`.
 
 ```sh
 API=http://localhost:8080/api
 TEACHER=teacher@demo.learnflow.example
 STUDENT=student@demo.learnflow.example
-CATEGORY_ID=1
+CATEGORY_ID=$(curl -fsS "$API/courses" |
+  jq -er 'first(.[] | select(.title == "Практика ORM с Hibernate")) | .categoryId')
 
 teacher_cookie=$(mktemp)
 student_cookie=$(mktemp)
@@ -141,12 +153,13 @@ teacher_write "$API/quizzes/$quiz_id/questions" \
 
 quiz=$(curl -fsS --user "$STUDENT" "$API/modules/$module_id/quiz")
 question_id=$(printf '%s' "$quiz" | jq -er '.questions[0].id')
-option_id=$(printf '%s' "$quiz" | jq -er '.questions[0].options[1].id')
+option_id=$(printf '%s' "$quiz" | jq -er '.questions[0].options[] | select(.text == "@ManyToOne") | .id')
 attempt_body=$(jq -nc --arg questionId "$question_id" --argjson optionId "$option_id" \
   '{answers:{($questionId):$optionId}}')
 student_write "$API/quizzes/$quiz_id/attempts" --data "$attempt_body"
 curl -fsS --user "$STUDENT" "$API/me/quiz-attempts"
 curl -fsS --user "$TEACHER" "$API/quizzes/$quiz_id/attempts"
+rm -f "$teacher_cookie" "$student_cookie"
 ```
 
 ## Тесты
@@ -163,6 +176,13 @@ curl -fsS --user "$TEACHER" "$API/quizzes/$quiz_id/attempts"
 ./mvnw verify
 ```
 
-Интеграционные тесты используют профиль `test` и запускают отдельный PostgreSQL 16 через Testcontainers. Для проверки достаточно запущенного Docker. В Windows вместо `./mvnw` используй `mvnw.cmd`.
+Интеграционные тесты используют профиль `test` и запускают отдельный PostgreSQL 16 через Testcontainers. Нужен запущенный Docker. В Windows вместо `./mvnw` используй `mvnw.cmd`.
 
-`./mvnw -Dtest=RestApiWorkflowTest test` запускает оба сценария через HTTP на случайном порту. Тест сам создаёт учётные записи и категорию в отдельной тестовой базе.
+| Что проверить | Команда Maven Wrapper |
+|---|---|
+| Сдача задания, выставление оценки и история попыток через HTTP | `./mvnw -Dtest=RestApiWorkflowTest test` |
+| Правила PostgreSQL и каскадное удаление | `./mvnw '-Dtest=*PersistenceTest,CourseStructureRepositoryTest' test` |
+| Проверка ленивой загрузки и количества SQL-запросов | `./mvnw -Dtest=QuizServiceTest test` |
+| Повторный запуск демо с сохранением прогресса | `./mvnw -Dtest=DemoDataInitializerTest test` |
+
+[GitHub Actions](.github/workflows/ci.yml) запускает полный набор тестов и собирает Docker-образ для пушей и пул-реквестов в `main`. Текстовые отчёты Surefire находятся в `target/surefire-reports` и доступны в артефакте `surefire-reports` после выполнения workflow.
